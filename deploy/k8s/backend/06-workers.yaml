@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-email
+  namespace: kinetic-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-email
+  template:
+    metadata:
+      labels:
+        app: worker-email
+    spec:
+      containers:
+        - name: worker-email
+          image: kinetic-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["php", "artisan", "queue:work", "--queue=emails", "--sleep=3", "--tries=3", "--timeout=120"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 400m
+              memory: 192Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-events
+  namespace: kinetic-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-events
+  template:
+    metadata:
+      labels:
+        app: worker-events
+    spec:
+      containers:
+        - name: worker-events
+          image: kinetic-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["php", "artisan", "queue:work", "--queue=events", "--sleep=3", "--tries=3", "--timeout=120"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 400m
+              memory: 192Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-default
+  namespace: kinetic-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-default
+  template:
+    metadata:
+      labels:
+        app: worker-default
+    spec:
+      containers:
+        - name: worker-default
+          image: kinetic-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["php", "artisan", "queue:work", "--queue=default", "--sleep=3", "--tries=3", "--timeout=120"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 400m
+              memory: 192Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: kinetic-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scheduler
+  template:
+    metadata:
+      labels:
+        app: scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: kinetic-backend:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secrets
+          resources:
+            requests:
+              cpu: 60m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 192Mi

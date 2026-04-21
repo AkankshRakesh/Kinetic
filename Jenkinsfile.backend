@@ -1,0 +1,85 @@
+pipeline {
+  agent any
+
+  environment {
+    K8S_NAMESPACE = 'kinetic-backend'
+    BACKEND_IMAGE = "kinetic-backend:${BUILD_NUMBER}"
+  }
+
+  options {
+    timestamps()
+    ansiColor('xterm')
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Backend CI') {
+      steps {
+        dir('backend') {
+          sh 'php -v'
+          sh 'composer --version'
+          sh 'composer install --no-interaction --prefer-dist'
+        }
+      }
+    }
+
+    stage('Build Backend Image') {
+      steps {
+        sh 'docker build -t $BACKEND_IMAGE backend'
+      }
+    }
+
+    stage('Load Image Into Minikube') {
+      steps {
+        sh 'minikube image load $BACKEND_IMAGE'
+      }
+    }
+
+    stage('Deploy Backend Pods') {
+      steps {
+        sh 'kubectl apply -f deploy/k8s/backend/00-namespace.yaml'
+        sh 'kubectl apply -f deploy/k8s/backend/01-configmap.yaml'
+        sh 'kubectl apply -f deploy/k8s/backend/02-secrets.template.yaml'
+        sh 'kubectl apply -f deploy/k8s/backend/03-postgres.yaml'
+        sh 'kubectl apply -f deploy/k8s/backend/04-api.yaml'
+        sh 'kubectl apply -f deploy/k8s/backend/05-auth-session.yaml'
+        sh 'kubectl apply -f deploy/k8s/backend/06-workers.yaml'
+        sh 'kubectl apply -f deploy/k8s/backend/07-ingress.yaml'
+
+        sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-api api=$BACKEND_IMAGE'
+        sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-auth auth=$BACKEND_IMAGE'
+        sh 'kubectl -n $K8S_NAMESPACE set image deployment/worker-email worker-email=$BACKEND_IMAGE'
+        sh 'kubectl -n $K8S_NAMESPACE set image deployment/worker-events worker-events=$BACKEND_IMAGE'
+        sh 'kubectl -n $K8S_NAMESPACE set image deployment/worker-default worker-default=$BACKEND_IMAGE'
+        sh 'kubectl -n $K8S_NAMESPACE set image deployment/scheduler scheduler=$BACKEND_IMAGE'
+
+        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/postgres --timeout=120s'
+        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/backend-api --timeout=180s'
+        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/backend-auth --timeout=180s'
+        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/worker-email --timeout=180s'
+        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/worker-events --timeout=180s'
+        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/worker-default --timeout=180s'
+        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/scheduler --timeout=180s'
+      }
+    }
+
+    stage('Migrate Database') {
+      steps {
+        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-api -- php artisan migrate --force'
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'kubectl -n $K8S_NAMESPACE get pods -o wide || true'
+      sh 'kubectl -n $K8S_NAMESPACE get svc || true'
+      sh 'kubectl -n $K8S_NAMESPACE get ingress || true'
+    }
+  }
+}
