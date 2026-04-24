@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-email
+  namespace: kinetic-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-email
+  template:
+    metadata:
+      labels:
+        app: backend-email
+    spec:
+      containers:
+        - name: email
+          image: akankshrakesh/kinetic-backend:latest # or use :${BUILD_NUMBER}
+          command: ["php", "artisan", "queue:work", "--queue=emails"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secrets

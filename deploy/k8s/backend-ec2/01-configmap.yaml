@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: kinetic-backend
+data:
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "https://your-domain"
+  QUEUE_CONNECTION: "database"
+  SESSION_DRIVER: "database"
+  CACHE_STORE: "database"
+  # Add other non-secret config here
