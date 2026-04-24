@@ -1,33 +1,55 @@
 pipeline {
   agent any
+
   environment {
     K8S_NAMESPACE = 'kinetic-backend'
-    DOCKERHUB_USER = 'akankshrakesh'
-    BACKEND_IMAGE = "kinetic-backend:latest"
-    IMAGE_URI = "${DOCKERHUB_USER}/kinetic-backend:latest"
+    BACKEND_IMAGE  = 'kinetic-backend:latest'
+    IMAGE_URI      = 'akankshrakesh/kinetic-backend:latest'
   }
+
   stages {
+
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
+
     stage('Build & Push') {
       steps {
-        sh 'docker build -t $BACKEND_IMAGE backend'
-        sh 'docker tag $BACKEND_IMAGE $IMAGE_URI'
-        withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
-          sh 'echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin'
+        bat 'docker build -t %BACKEND_IMAGE% backend'
+        bat 'docker tag %BACKEND_IMAGE% %IMAGE_URI%'
+
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'docker-hub',
+            usernameVariable: 'DOCKERHUB_USER',
+            passwordVariable: 'DOCKERHUB_PASS'
+          )
+        ]) {
+          bat '''
+          echo %DOCKERHUB_PASS% | docker login -u %DOCKERHUB_USER% --password-stdin
+          docker push %IMAGE_URI%
+          '''
         }
-        sh 'docker push $IMAGE_URI'
       }
     }
+
     stage('Deploy') {
       steps {
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/'
-        sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-general general=$IMAGE_URI'
-        sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-auth auth=$IMAGE_URI'
-        sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-email email=$IMAGE_URI'
-        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/backend-general --timeout=180s'
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+          bat '''
+          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\
+
+          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-general general=%IMAGE_URI%
+          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-auth auth=%IMAGE_URI%
+          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-email email=%IMAGE_URI%
+
+          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-general --timeout=180s
+          '''
+        }
       }
     }
+
   }
 }
