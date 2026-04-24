@@ -52,6 +52,8 @@ docker build -t kinetic-backend:latest backend
 minikube image load kinetic-backend:latest
 ```
 
+LOCALSTACK_AUTH_TOKEN=ls-YAFoSOzo-3091-1765-vONi-WofuBEWe1df6
+
 3. Apply manifests:
 
 ```bash
@@ -77,6 +79,9 @@ kubectl -n kinetic-backend port-forward svc/backend-api 8080:8080
 ```bash
 minikube ip
 ```
+
+6. Dashboard
+minikube dashboard
 
 Add this in your hosts file:
 

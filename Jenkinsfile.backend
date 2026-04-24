@@ -22,7 +22,7 @@ pipeline {
         dir('backend') {
           bat 'php -v'
           bat 'composer --version'
-          bat 'composer install --no-interaction --prefer-dist'
+          bat 'composer install --no-interaction --prefer-dist --no-progress --no-dev'
         }
       }
     }
