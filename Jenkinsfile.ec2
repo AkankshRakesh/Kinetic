@@ -1,100 +1,33 @@
 pipeline {
   agent any
-
   environment {
     K8S_NAMESPACE = 'kinetic-backend'
-    DOCKERHUB_USER = 'your-dockerhub-username' // <-- CHANGE THIS
-    BACKEND_IMAGE = "kinetic-backend:${BUILD_NUMBER}"
-    IMAGE_URI = "${DOCKERHUB_USER}/kinetic-backend:${BUILD_NUMBER}"
+    DOCKERHUB_USER = 'akankshrakesh'
+    BACKEND_IMAGE = "kinetic-backend:latest"
+    IMAGE_URI = "${DOCKERHUB_USER}/kinetic-backend:latest"
   }
-
-  options {
-    timestamps()
-    ansiColor('xterm')
-  }
-
   stages {
     stage('Checkout') {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
-
-    stage('Backend CI') {
-      steps {
-        dir('backend') {
-          sh 'php -v'
-          sh 'composer --version'
-          sh 'composer install --no-interaction --prefer-dist --no-dev --no-progress'
-        }
-      }
-    }
-
-    stage('Build Backend Image') {
+    stage('Build & Push') {
       steps {
         sh 'docker build -t $BACKEND_IMAGE backend'
         sh 'docker tag $BACKEND_IMAGE $IMAGE_URI'
-      }
-    }
-
-    stage('Push Backend Image') {
-      steps {
         withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
           sh 'echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin'
         }
         sh 'docker push $IMAGE_URI'
       }
     }
-
-    stage('Deploy Kubernetes Workloads') {
+    stage('Deploy') {
       steps {
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/00-namespace.yaml'
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/01-configmap.yaml'
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/02-secrets.template.yaml'
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/03-postgres.yaml'
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/04-general.yaml'
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/05-auth.yaml'
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/06-email.yaml'
-        sh 'kubectl apply -f deploy/k8s/backend-ec2/07-ingress.yaml'
-
+        sh 'kubectl apply -f deploy/k8s/backend-ec2/'
         sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-general general=$IMAGE_URI'
         sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-auth auth=$IMAGE_URI'
         sh 'kubectl -n $K8S_NAMESPACE set image deployment/backend-email email=$IMAGE_URI'
-
         sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/backend-general --timeout=180s'
-        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/backend-auth --timeout=180s'
-        sh 'kubectl -n $K8S_NAMESPACE rollout status deployment/backend-email --timeout=180s'
       }
-    }
-
-    stage('Run Migrations') {
-      steps {
-        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-general -- php artisan migrate --force'
-      }
-    }
-
-    stage('Warm Cache') {
-      steps {
-        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-general -- php artisan config:clear'
-        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-general -- php artisan config:cache'
-        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-general -- php artisan route:cache'
-        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-general -- php artisan view:cache'
-      }
-    }
-
-    stage('Smoke Test') {
-      steps {
-        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-general -- sh -c "curl -fsS http://127.0.0.1:8080/up"'
-        sh 'kubectl -n $K8S_NAMESPACE exec deploy/backend-auth -- sh -c "curl -fsS http://127.0.0.1:8080/up"'
-      }
-    }
-  }
-
-  post {
-    always {
-      sh 'kubectl -n $K8S_NAMESPACE get pods -o wide || true'
-      sh 'kubectl -n $K8S_NAMESPACE get svc || true'
-      sh 'kubectl -n $K8S_NAMESPACE get ingress || true'
     }
   }
 }
