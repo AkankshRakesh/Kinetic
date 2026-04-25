@@ -1,0 +1,419 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
+import { Newsreader, Space_Grotesk } from "next/font/google";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+
+const uiFont = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const displayFont = Newsreader({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+});
+
+const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? "").replace(/\/$/, "");
+const CSRF_ENDPOINT = process.env.NEXT_PUBLIC_AUTH_CSRF_ENDPOINT ?? "/sanctum/csrf-cookie";
+const INCLUDE_CREDENTIALS = process.env.NEXT_PUBLIC_AUTH_INCLUDE_CREDENTIALS !== "false";
+
+type EventItem = {
+  id: string;
+  name: string;
+  location?: string | null;
+  eventDate?: string | null;
+  region: string;
+  status: "ACTIVE" | "PAUSED";
+  invitationCount: number;
+  acceptedCount: number;
+};
+
+type EventsResponse = {
+  data?: EventItem | EventItem[];
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
+function resolveApiUrl(pathOrUrl: string): string {
+  if (/^https?:\/\//i.test(pathOrUrl)) {
+    return pathOrUrl;
+  }
+
+  if (!AUTH_API_BASE_URL) {
+    return pathOrUrl;
+  }
+
+  const cleanPath = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+  return `${AUTH_API_BASE_URL}${cleanPath}`;
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? match[1] : null;
+}
+
+function buildJsonHeaders(): Headers {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  const xsrf = readCookie("XSRF-TOKEN");
+
+  if (xsrf) {
+    headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrf));
+  }
+
+  return headers;
+}
+
+async function ensureCsrfCookie(): Promise<void> {
+  const response = await fetch(resolveApiUrl(CSRF_ENDPOINT), {
+    method: "GET",
+    credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not initialize event creation.");
+  }
+}
+
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M12.5 12.5L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function GridIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M6 4h8M6 8h8M6 12h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="3" cy="4" r="1" fill="currentColor"/>
+      <circle cx="3" cy="8" r="1" fill="currentColor"/>
+      <circle cx="3" cy="12" r="1" fill="currentColor"/>
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <path d="M7.5 2.5v10M2.5 7.5h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function DotsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="4" cy="8" r="1.2" fill="currentColor"/>
+      <circle cx="8" cy="8" r="1.2" fill="currentColor"/>
+      <circle cx="12" cy="8" r="1.2" fill="currentColor"/>
+    </svg>
+  );
+}
+
+export default function PortalEventsPage() {
+  const router = useRouter();
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [query, setQuery] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newEventName, setNewEventName] = useState("");
+  const [newEventLocation, setNewEventLocation] = useState("");
+  const [newEventDate, setNewEventDate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const filteredEvents = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return events;
+    }
+
+    return events.filter((event) => event.name.toLowerCase().includes(normalizedQuery));
+  }, [events, query]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadEvents() {
+      try {
+        const response = await fetch(resolveApiUrl("/api/events"), {
+          method: "GET",
+          credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
+        });
+        const data = (await response.json().catch(() => ({}))) as EventsResponse;
+
+        if (!response.ok || !Array.isArray(data.data)) {
+          throw new Error(data.message || "Could not load events.");
+        }
+
+        if (isMounted) {
+          setEvents(data.data);
+        }
+      } catch (err: unknown) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Could not load events.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadEvents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function createEvent() {
+    if (!newEventName.trim() || !newEventLocation.trim() || !newEventDate) {
+      setError("Enter an event name, location, and date.");
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      await ensureCsrfCookie();
+
+      const response = await fetch(resolveApiUrl("/api/events"), {
+        method: "POST",
+        headers: buildJsonHeaders(),
+        credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
+        body: JSON.stringify({
+          name: newEventName.trim(),
+          location: newEventLocation.trim(),
+          eventDate: newEventDate,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as EventsResponse;
+
+      if (!response.ok || !data.data || Array.isArray(data.data)) {
+        const validationErrors = data.errors ? Object.values(data.errors).flat().join(", ") : "";
+        throw new Error(validationErrors || data.message || "Could not create event.");
+      }
+
+      setEvents((prev) => [data.data as EventItem, ...prev]);
+      setShowCreateModal(false);
+      setNewEventName("");
+      setNewEventLocation("");
+      setNewEventDate("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not create event.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <main className={`${uiFont.className} min-h-screen overflow-hidden bg-[#101112] px-4 py-6 text-[#f4eee9] sm:px-6 lg:px-8 lg:py-10`}>
+      <div className="relative mx-auto w-full max-w-365">
+        <div className="pointer-events-none absolute inset-y-0 right-[-18%] hidden w-[70%] lg:block xl:right-0 xl:w-[55%]">
+            <Image
+              src="/events.gif"
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover object-right opacity-80"
+              width={800}
+              height={600}
+              unoptimized
+            />
+            <div className="absolute inset-0 bg-linear-to-l from-[#101112]/5 via-[#101112]/55 to-[#101112]" />
+          </div>
+        <section className="relative min-h-screen">
+        <h1 className={`${displayFont.className} text-3xl font-semibold text-[#f7efe8] sm:text-4xl`}>Events</h1>
+      
+        <div className="mt-8 flex flex-col gap-4 lg:mt-14 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <label className="flex h-10 w-full items-center gap-3 rounded-md border border-[#2d2f31] bg-[#191a1c] px-3 text-[#898d92] sm:h-9 sm:w-88.75">
+              <SearchIcon />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-sm text-[#e6dad3] placeholder:text-[#6f7378] focus:outline-none"
+                placeholder="Search for an event"
+              />
+            </label>
+            <button className="h-9 rounded-md border border-dashed border-[#33363a] px-3 text-sm font-semibold text-[#e6dad3]">
+              Status
+            </button>
+            <button className="h-9 rounded-md border border-[#33363a] bg-[#1a1b1e] px-4 text-sm font-semibold text-[#f1e8df] shadow-sm">
+              Sorted by name
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button className="grid h-9 w-9 place-items-center rounded-md bg-[#242528] text-[#d6d9dd]">
+              <GridIcon />
+            </button>
+            <button className="grid h-9 w-9 place-items-center rounded-md text-[#8f949a]">
+              <ListIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setShowCreateModal(true);
+              }}
+              disabled={creating}
+              className="flex h-9 items-center gap-2 rounded-md bg-[#007a4d] px-4 text-sm font-bold text-white transition hover:bg-[#008d59] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <PlusIcon />
+              {creating ? "Creating..." : "New event"}
+            </button>
+          </div>
+        </div>
+
+        {error && <p className="mt-4 text-sm text-[#ff9e9e]">{error}</p>}
+
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+          {loading ? (
+            <div className="col-span-full flex items-center gap-3 rounded-md border border-[#2d2f31] bg-[#1b1c1e] px-6 py-8 text-sm font-semibold tracking-[0.14em] text-[#8f949a]">
+              <span className="h-4 w-4 animate-spin rounded-full border border-[#3b3430] border-t-[#ffb77b]" />
+              LOADING EVENTS
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="col-span-full rounded-md border border-[#2d2f31] bg-[#1b1c1e] px-6 py-8 text-sm text-[#8f949a]">
+              No events found.
+            </div>
+          ) : (
+            filteredEvents.map((event, index) => (
+              <motion.button
+                key={event.id}
+                type="button"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.04 }}
+                onClick={() => router.push(`/portal/events/${event.id}`)}
+                className="group min-h-55 rounded-md border border-[#2d2f31] bg-[#1b1c1e]/95 p-5 text-left transition hover:border-[#ffb77b]/45 hover:bg-[#202124] sm:p-6"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-[#f5f0eb]">{event.name}</h2>
+                    <p className="mt-3 text-base text-[#9ca3ad] sm:text-lg">{event.location || event.region}</p>
+                    {event.eventDate && <p className="mt-1 text-xs font-semibold tracking-[0.16em] text-[#777b80]">{event.eventDate}</p>}
+                  </div>
+                  <span className="text-[#777b80] transition group-hover:text-[#ffb77b]">
+                    <DotsIcon />
+                  </span>
+                </div>
+
+                <div className="mt-7 inline-flex rounded border border-[#34373b] px-2 py-1 text-[10px] font-semibold tracking-[0.22em] text-[#d7dbe0]">
+                  EVENT
+                </div>
+
+                <div className="mt-12 flex items-center justify-between text-sm">
+                  <span className="font-semibold text-[#f1e8df]">
+                    {event.status === "PAUSED" ? "Event is paused" : "Event is active"}
+                  </span>
+                  <span className="text-[#8f949a]">
+                    {event.acceptedCount}/{event.invitationCount} accepted
+                  </span>
+                </div>
+              </motion.button>
+            ))
+          )}
+        </div>
+        </section>
+      </div>
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 px-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void createEvent();
+            }}
+            className="w-full max-w-md border border-[#34373b] bg-[#111316] p-5 shadow-2xl sm:p-6"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-semibold tracking-[0.26em] text-[#8f8078]">NEW_EVENT</p>
+                <h2 className={`${displayFont.className} mt-1 text-3xl font-semibold text-[#f7efe8]`}>Create event</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="text-lg leading-none text-[#8f8078] hover:text-[#ffb77b]"
+                aria-label="Close new event modal"
+              >
+                x
+              </button>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-[10px] font-semibold tracking-[0.2em] text-[#8f8078]">EVENT NAME</span>
+              <input
+                value={newEventName}
+                onChange={(e) => setNewEventName(e.target.value)}
+                className="w-full rounded-sm border border-[#34373b] bg-[#191a1c] px-4 py-3 text-sm text-[#e6dad3] placeholder:text-[#6f7378] focus:border-[#ffb77b]/60 focus:outline-none"
+                placeholder="Launch Night"
+                autoFocus
+              />
+            </label>
+
+            <label className="mt-4 block">
+              <span className="mb-2 block text-[10px] font-semibold tracking-[0.2em] text-[#8f8078]">LOCATION</span>
+              <input
+                value={newEventLocation}
+                onChange={(e) => setNewEventLocation(e.target.value)}
+                className="w-full rounded-sm border border-[#34373b] bg-[#191a1c] px-4 py-3 text-sm text-[#e6dad3] placeholder:text-[#6f7378] focus:border-[#ffb77b]/60 focus:outline-none"
+                placeholder="Mumbai, India"
+              />
+            </label>
+
+            <label className="mt-4 block">
+              <span className="mb-2 block text-[10px] font-semibold tracking-[0.2em] text-[#8f8078]">DATE</span>
+              <input
+                type="date"
+                value={newEventDate}
+                onChange={(e) => setNewEventDate(e.target.value)}
+                className="w-full rounded-sm border border-[#34373b] bg-[#191a1c] px-4 py-3 text-sm text-[#e6dad3] focus:border-[#ffb77b]/60 focus:outline-none"
+              />
+            </label>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="border border-[#34373b] px-4 py-3 text-xs font-bold tracking-[0.18em] text-[#dac7bd] hover:border-[#ffb77b]/45"
+              >
+                CANCEL
+              </button>
+              <button
+                type="submit"
+                disabled={creating}
+                className="bg-[#007a4d] px-4 py-3 text-xs font-bold tracking-[0.18em] text-white hover:bg-[#008d59] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {creating ? "CREATING" : "CREATE"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </main>
+  );
+}

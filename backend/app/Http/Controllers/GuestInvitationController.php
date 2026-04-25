@@ -1,0 +1,175 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Mail\GuestInvitationMail;
+use App\Models\Event;
+use App\Models\GuestInvitation;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
+
+class GuestInvitationController extends Controller
+{
+    public function index(Request $request, Event $event)
+    {
+        abort_unless($event->owner_user_id === $request->user()->id, 404);
+
+        $invitations = GuestInvitation::query()
+            ->where('event_id', $event->id)
+            ->where('invited_by_user_id', $request->user()->id)
+            ->latest()
+            ->get()
+            ->map(fn (GuestInvitation $invitation) => [
+                'id' => (string) $invitation->id,
+                'guestName' => $invitation->guest_name,
+                'guestEmail' => $invitation->guest_email,
+                'customMessage' => $invitation->custom_message,
+                'additionalGuestNames' => $invitation->additional_guest_names ?? [],
+                'peopleCount' => $invitation->people_count,
+                'guestResponseMessage' => $invitation->guest_response_message,
+                'status' => strtoupper($invitation->status),
+                'sentAt' => $invitation->sent_at?->toISOString(),
+                'acceptedAt' => $invitation->accepted_at?->toISOString(),
+                'rejectedAt' => $invitation->rejected_at?->toISOString(),
+            ]);
+
+        return response()->json(['data' => $invitations]);
+    }
+
+    public function send(Request $request, Event $event)
+    {
+        abort_unless($event->owner_user_id === $request->user()->id, 404);
+
+        $request->merge([
+            'guestEmail' => strtolower((string) $request->input('guestEmail', '')),
+        ]);
+
+        $validator = Validator::make($request->all(), [
+            'guestName' => 'required|string|max:255',
+            'guestEmail' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('guest_invitations', 'guest_email')->where('event_id', $event->id),
+            ],
+            'customMessage' => 'nullable|string|max:1000',
+            'additionalGuestNames' => 'sometimes|array|max:20',
+            'additionalGuestNames.*' => 'required|string|max:255|distinct',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $data = $validator->validated();
+        $additionalGuestNames = collect($data['additionalGuestNames'] ?? [])
+            ->map(fn (string $guestName) => trim($guestName))
+            ->filter()
+            ->values()
+            ->all();
+        $acceptToken = Str::random(64);
+        $invitation = GuestInvitation::create([
+            'invited_by_user_id' => $request->user()?->id,
+            'event_id' => $event->id,
+            'guest_name' => trim($data['guestName']),
+            'guest_email' => strtolower($data['guestEmail']),
+            'custom_message' => $data['customMessage'] ?? null,
+            'additional_guest_names' => $additionalGuestNames,
+            'people_count' => 1 + count($additionalGuestNames),
+            'status' => 'pending',
+            'accept_token_hash' => hash('sha256', $acceptToken),
+            'sent_at' => now(),
+        ]);
+
+        Mail::to($data['guestEmail'])->send(
+            new GuestInvitationMail(
+                $data['guestName'],
+                $data['guestEmail'],
+                $data['customMessage'] ?? null,
+                $this->buildAcceptUrl($acceptToken),
+                $additionalGuestNames
+            )
+        );
+
+        return response()->json([
+            'message' => 'Invitation email sent successfully.',
+            'data' => [
+                'id' => (string) $invitation->id,
+                'guestName' => $invitation->guest_name,
+                'guestEmail' => $invitation->guest_email,
+                'customMessage' => $invitation->custom_message,
+                'additionalGuestNames' => $invitation->additional_guest_names ?? [],
+                'peopleCount' => $invitation->people_count,
+                'guestResponseMessage' => $invitation->guest_response_message,
+                'status' => strtoupper($invitation->status),
+                'sentAt' => $invitation->sent_at?->toISOString(),
+                'acceptedAt' => $invitation->accepted_at?->toISOString(),
+                'rejectedAt' => $invitation->rejected_at?->toISOString(),
+            ],
+        ], 201);
+    }
+
+    public function accept(string $token)
+    {
+        return $this->respondToInvitation($token, 'accepted');
+    }
+
+    public function respond(Request $request, string $token)
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:accepted,rejected',
+            'message' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $data = $validator->validated();
+
+        return $this->respondToInvitation($token, $data['status'], $data['message'] ?? null);
+    }
+
+    private function respondToInvitation(string $token, string $status, ?string $message = null)
+    {
+        $invitation = GuestInvitation::where('accept_token_hash', hash('sha256', $token))->first();
+
+        if (! $invitation) {
+            return response()->json(['message' => 'Invitation link is invalid.'], 404);
+        }
+
+        $timestampColumn = $status === 'accepted' ? 'accepted_at' : 'rejected_at';
+
+        $invitation->forceFill([
+            'status' => $status,
+            'guest_response_message' => $message,
+            'accepted_at' => $status === 'accepted' ? ($invitation->accepted_at ?? now()) : null,
+            'rejected_at' => $status === 'rejected' ? ($invitation->rejected_at ?? now()) : null,
+            $timestampColumn => $invitation->{$timestampColumn} ?? now(),
+        ])->save();
+
+        return response()->json([
+            'message' => $status === 'accepted' ? 'Invitation accepted.' : 'Invitation rejected.',
+            'data' => [
+                'guestName' => $invitation->guest_name,
+                'guestEmail' => $invitation->guest_email,
+                'additionalGuestNames' => $invitation->additional_guest_names ?? [],
+                'peopleCount' => $invitation->people_count,
+                'guestResponseMessage' => $invitation->guest_response_message,
+                'status' => strtoupper($invitation->status),
+                'acceptedAt' => $invitation->accepted_at?->toISOString(),
+                'rejectedAt' => $invitation->rejected_at?->toISOString(),
+            ],
+        ]);
+    }
+
+    private function buildAcceptUrl(string $token): string
+    {
+        $frontendUrl = rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/');
+
+        return "{$frontendUrl}/invite/accept?token={$token}";
+    }
+}
