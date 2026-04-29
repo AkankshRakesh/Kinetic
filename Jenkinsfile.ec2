@@ -37,15 +37,28 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+        withCredentials([
+          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG'),
+          file(credentialsId: 'backend-ec2-secrets-env', variable: 'BACKEND_SECRET_ENV')
+        ]) {
           bat '''
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\
+          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\00-namespace.yaml
+          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\01-configmap.yaml
+
+          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% create secret generic backend-secrets --from-env-file=%BACKEND_SECRET_ENV% --dry-run=client -o yaml | kubectl --kubeconfig=%KUBECONFIG% apply -f -
+
+          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\04-general.yaml
+          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\05-auth.yaml
+          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\06-email.yaml
+          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\07-ingress.yaml
 
           kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-general general=%IMAGE_URI%
           kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-auth auth=%IMAGE_URI%
           kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-email email=%IMAGE_URI%
 
           kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-general --timeout=180s
+          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-auth --timeout=180s
+          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-email --timeout=180s
           '''
         }
       }

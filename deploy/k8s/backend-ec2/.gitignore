@@ -1,0 +1,4 @@
+backend-ec2-secrets-env
+backend-ec2-secrets-env.*
+!backend-ec2-secrets-env.example
+02-secrets.local.yaml
