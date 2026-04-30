@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useRouter } from "next/navigation";
@@ -132,6 +132,7 @@ function DotsIcon() {
 
 export default function PortalEventsPage() {
   const router = useRouter();
+  const carouselRef = useRef<HTMLDivElement | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [query, setQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -229,10 +230,23 @@ export default function PortalEventsPage() {
     }
   }
 
+  function scrollCarousel(direction: "left" | "right") {
+    const container = carouselRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const cardWidth = container.querySelector<HTMLElement>('[data-event-card="true"]')?.offsetWidth ?? 352;
+    const gap = 16;
+    const delta = (cardWidth + gap) * (direction === "left" ? -1 : 1);
+
+    container.scrollBy({ left: delta, behavior: "smooth" });
+  }
+
   return (
-    <main className={`${uiFont.className} min-h-screen overflow-hidden bg-[#101112] px-4 py-6 text-[#f4eee9] sm:px-6 lg:px-8 lg:py-10`}>
-      <div className="relative mx-auto w-full max-w-365">
-        <div className="pointer-events-none absolute inset-y-0 right-[-18%] hidden w-[70%] lg:block xl:right-0 xl:w-[55%]">
+    <main className={`${uiFont.className} h-full relative overflow-x-clip bg-[#101112] text-[#f4eee9]`}>
+        <div className="pointer-events-none absolute inset-y-0 right-[-22%] hidden w-[80%] md:block lg:right-[-14%] lg:w-[70%] xl:right-0 xl:w-[55%]">
             <Image
               src="/events.gif"
               alt=""
@@ -244,12 +258,13 @@ export default function PortalEventsPage() {
             />
             <div className="absolute inset-0 bg-linear-to-l from-[#101112]/5 via-[#101112]/55 to-[#101112]" />
           </div>
-        <section className="relative min-h-screen">
+      <div className="relative mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+        <section className="relative h-full overflow-hidden">
         <h1 className={`${displayFont.className} text-3xl font-semibold text-[#f7efe8] sm:text-4xl`}>Events</h1>
       
-        <div className="mt-8 flex flex-col gap-4 lg:mt-14 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <label className="flex h-10 w-full items-center gap-3 rounded-md border border-[#2d2f31] bg-[#191a1c] px-3 text-[#898d92] sm:h-9 sm:w-88.75">
+        <div className="mt-8 flex flex-col gap-4 lg:mt-12 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
+            <label className="flex h-10 w-full items-center gap-3 rounded-md border border-[#2d2f31] bg-[#191a1c] px-3 text-[#898d92] sm:h-9 sm:w-[22rem]">
               <SearchIcon />
               <input
                 value={query}
@@ -258,21 +273,15 @@ export default function PortalEventsPage() {
                 placeholder="Search for an event"
               />
             </label>
-            <button className="h-9 rounded-md border border-dashed border-[#33363a] px-3 text-sm font-semibold text-[#e6dad3]">
+            <button className="h-9 rounded-md border border-dashed border-[#33363a] px-3 text-sm font-semibold text-[#e6dad3] sm:w-auto">
               Status
             </button>
-            <button className="h-9 rounded-md border border-[#33363a] bg-[#1a1b1e] px-4 text-sm font-semibold text-[#f1e8df] shadow-sm">
+            <button className="h-9 rounded-md border border-[#33363a] bg-[#1a1b1e] px-4 text-sm font-semibold text-[#f1e8df] shadow-sm sm:w-auto">
               Sorted by name
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button className="grid h-9 w-9 place-items-center rounded-md bg-[#242528] text-[#d6d9dd]">
-              <GridIcon />
-            </button>
-            <button className="grid h-9 w-9 place-items-center rounded-md text-[#8f949a]">
-              <ListIcon />
-            </button>
+          <div className="flex w-full items-center gap-2 sm:gap-3 lg:w-auto">
             <button
               type="button"
               onClick={() => {
@@ -280,7 +289,7 @@ export default function PortalEventsPage() {
                 setShowCreateModal(true);
               }}
               disabled={creating}
-              className="flex h-9 items-center gap-2 rounded-md bg-[#007a4d] px-4 text-sm font-bold text-white transition hover:bg-[#008d59] disabled:cursor-not-allowed disabled:opacity-70"
+              className="ml-auto flex h-9 items-center gap-2 rounded-md bg-[#007a4d] px-4 text-sm font-bold text-white transition hover:bg-[#008d59] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <PlusIcon />
               {creating ? "Creating..." : "New event"}
@@ -290,14 +299,37 @@ export default function PortalEventsPage() {
 
         {error && <p className="mt-4 text-sm text-[#ff9e9e]">{error}</p>}
 
-        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+        <div className="mt-5">
+          <div className="mb-3 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => scrollCarousel("left")}
+              className="grid h-9 w-9 place-items-center rounded-md border border-[#2d2f31] bg-[#18191b] text-[#d6d9dd] transition hover:border-[#ffb77b]/45 hover:text-[#ffb77b]"
+              aria-label="Scroll events left"
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollCarousel("right")}
+              className="grid h-9 w-9 place-items-center rounded-md border border-[#2d2f31] bg-[#18191b] text-[#d6d9dd] transition hover:border-[#ffb77b]/45 hover:text-[#ffb77b]"
+              aria-label="Scroll events right"
+            >
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+
+          <div
+            ref={carouselRef}
+            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
           {loading ? (
-            <div className="col-span-full flex items-center gap-3 rounded-md border border-[#2d2f31] bg-[#1b1c1e] px-6 py-8 text-sm font-semibold tracking-[0.14em] text-[#8f949a]">
+            <div className="flex min-w-[min(88vw,22rem)] snap-start items-center gap-3 rounded-md border border-[#2d2f31] bg-[#1b1c1e] px-6 py-8 text-sm font-semibold tracking-[0.14em] text-[#8f949a] sm:min-w-[20rem] lg:min-w-[22rem]">
               <span className="h-4 w-4 animate-spin rounded-full border border-[#3b3430] border-t-[#ffb77b]" />
               LOADING EVENTS
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="col-span-full rounded-md border border-[#2d2f31] bg-[#1b1c1e] px-6 py-8 text-sm text-[#8f949a]">
+            <div className="min-w-[min(88vw,22rem)] snap-start rounded-md border border-[#2d2f31] bg-[#1b1c1e] px-6 py-8 text-sm text-[#8f949a] sm:min-w-[20rem] lg:min-w-[22rem]">
               No events found.
             </div>
           ) : (
@@ -309,7 +341,9 @@ export default function PortalEventsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.04 }}
                 onClick={() => router.push(`/portal/events/${event.id}`)}
-                className="group min-h-55 rounded-md border border-[#2d2f31] bg-[#1b1c1e]/95 p-5 text-left transition hover:border-[#ffb77b]/45 hover:bg-[#202124] sm:p-6"
+                data-event-card="true"
+                className="group w-[min(88vw,22rem)] flex-none snap-start rounded-md border border-[#2d2f31] bg-[#1b1c1e]/95 p-5 text-left transition hover:border-[#ffb77b]/45 hover:bg-[#202124] sm:w-[20rem] sm:p-6 lg:w-[22rem]"
+                
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -326,7 +360,7 @@ export default function PortalEventsPage() {
                   EVENT
                 </div>
 
-                <div className="mt-12 flex items-center justify-between text-sm">
+                <div className="mt-10 flex flex-wrap items-center justify-between gap-2 text-sm sm:mt-12">
                   <span className="font-semibold text-[#f1e8df]">
                     {event.status === "PAUSED" ? "Event is paused" : "Event is active"}
                   </span>
@@ -337,17 +371,18 @@ export default function PortalEventsPage() {
               </motion.button>
             ))
           )}
+          </div>
         </div>
         </section>
       </div>
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 px-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-3 sm:p-4">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void createEvent();
             }}
-            className="w-full max-w-md border border-[#34373b] bg-[#111316] p-5 shadow-2xl sm:p-6"
+            className="max-h-[92vh] w-full max-w-md overflow-y-auto border border-[#34373b] bg-[#111316] p-5 shadow-2xl sm:p-6"
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
@@ -357,10 +392,10 @@ export default function PortalEventsPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="text-lg leading-none text-[#8f8078] hover:text-[#ffb77b]"
+                className="text-2xl leading-none text-[#8f8078] hover:text-[#ffb77b]"
                 aria-label="Close new event modal"
               >
-                x
+                X
               </button>
             </div>
 
@@ -395,7 +430,7 @@ export default function PortalEventsPage() {
               />
             </label>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}

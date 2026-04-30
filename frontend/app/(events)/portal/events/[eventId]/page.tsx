@@ -163,7 +163,7 @@ export default function EventDashboardPage() {
             </ul>
           </div>
           <div className="relative min-h-65 overflow-hidden border-b border-[#2b2520]/60 xl:border-b-0 xl:border-r">
-            <Image
+            {/* <Image
               src="/events.gif"
               alt=""
               aria-hidden="true"
@@ -171,7 +171,7 @@ export default function EventDashboardPage() {
               unoptimized
               className="object-cover object-center opacity-85"
               sizes="(min-width: 1280px) 33vw, 100vw"
-            />
+            /> */}
             <div className="absolute inset-0 bg-linear-to-r from-[#090b10]/80 via-[#090b10]/25 to-[#090b10]/65" />
             <div className="absolute left-5 top-5 rounded-sm border border-[#ffb77b]/45 bg-[#090b10]/80 px-2 py-1 text-[9px] font-semibold tracking-[0.2em] text-[#ffb77b]">
               EVENT_SIGNAL

@@ -64,25 +64,25 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090b10] text-[#e5e2e3]">
+    <div className={`${uiFont.className} flex h-screen flex-col bg-[#0D0E10] text-[#e5e2e3]`}>
       {/* NAVBAR */}
-      <header className="w-full z-40 bg-[#0f1218]/95 border-b border-[#3b3430]/80 px-0 py-0 backdrop-blur sticky top-0">
-        <div className="mx-auto flex h-15 w-full max-w-365 items-center justify-between px-4 text-[11px] tracking-[0.2em] sm:px-8">
-          <div className="flex items-center gap-10 text-[#8f8078] h-full">
-            <span className="text-lg font-bold tracking-[0.14em] text-[#ffb77b]">KINETIC_LABS</span>
+      <header className="sticky top-0 z-40 w-full border-b border-[#3b3430]/80 bg-[#0f1218]/95 backdrop-blur">
+        <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-3 text-[10px] tracking-[0.16em] sm:h-16 sm:px-6 sm:text-[11px] sm:tracking-[0.2em] lg:px-8">
+          <div className="flex h-full items-center text-[#8f8078]">
+            <span className="text-sm font-bold tracking-[0.12em] text-[#ffb77b] sm:text-base sm:tracking-[0.14em]">KINETIC_LABS</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
               <button
                 type="button"
                 aria-label="Notifications"
-                className="grid h-9 w-9 place-items-center rounded-lg text-[#9f8e86] hover:text-[#ffb77b] transition"
+                className="grid h-8 w-8 place-items-center rounded-lg text-[#9f8e86] transition hover:text-[#ffb77b] sm:h-9 sm:w-9"
               >
                 <BellIcon />
               </button>
               <button
                 type="button"
                 aria-label="Settings"
-                className="grid h-9 w-9 place-items-center rounded-lg text-[#9f8e86] hover:text-[#ffb77b] transition"
+                className="grid h-8 w-8 place-items-center rounded-lg text-[#9f8e86] transition hover:text-[#ffb77b] sm:h-9 sm:w-9"
               >
                 <SettingsIcon />
               </button>
@@ -91,7 +91,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 onClick={handleLogout}
                 disabled={isBusy}
                 aria-label="User / Logout"
-                className="grid h-9 w-9 place-items-center rounded-lg border border-[#ffb77b]/40 text-[#ffb77b] hover:bg-[#ffb77b]/10 transition disabled:opacity-60"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[#ffb77b]/40 text-[#ffb77b] transition hover:bg-[#ffb77b]/10 disabled:opacity-60 sm:h-9 sm:w-9"
               >
                 <UserIcon />
               </button>
@@ -100,7 +100,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       </header>
 
         {/* MAIN CONTENT */}
-        <main className="min-w-0 flex-1">
+        <main className="flex-1 min-h-0">
           {children}
         </main>
     </div>
