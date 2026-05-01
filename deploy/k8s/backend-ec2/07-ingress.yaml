@@ -5,7 +5,7 @@ metadata:
   namespace: kinetic-backend
 
 spec:
-  ingressClassName: traefik
+  ingressClassName: nginx
   rules:
   - http:
       paths:

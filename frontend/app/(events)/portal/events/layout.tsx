@@ -127,6 +127,7 @@ function SideRailButton({
     targetPath === "/portal"
       ? pathname === "/portal"
       : pathname === targetPath || pathname.startsWith(`${targetPath}/`);
+    // console.log("SideRailButton", { pathname, targetPath, active });
 
   return (
     <button
