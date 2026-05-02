@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Mail\GuestInvitationMail;
+use App\Mail\GuestPhotoUploadMail;
 use App\Models\Event;
 use App\Models\GuestInvitation;
+use App\Models\GuestUpload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -151,6 +153,11 @@ class GuestInvitationController extends Controller
             $timestampColumn => $invitation->{$timestampColumn} ?? now(),
         ])->save();
 
+        // If invitation is accepted, create upload share link and send email
+        if ($status === 'accepted') {
+            $this->createAndEmailUploadLink($invitation);
+        }
+
         return response()->json([
             'message' => $status === 'accepted' ? 'Invitation accepted.' : 'Invitation rejected.',
             'data' => [
@@ -171,5 +178,40 @@ class GuestInvitationController extends Controller
         $frontendUrl = rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/');
 
         return "{$frontendUrl}/invite/accept?token={$token}";
+    }
+
+    private function createAndEmailUploadLink(GuestInvitation $invitation): void
+    {
+        // Check if upload record already exists for this guest at this event
+        $existingUpload = GuestUpload::where('event_id', $invitation->event_id)
+            ->where('guest_email', $invitation->guest_email)
+            ->first();
+
+        // If it doesn't exist, create one
+        if (! $existingUpload) {
+            $shareToken = Str::random(32);
+            $existingUpload = GuestUpload::create([
+                'event_id' => $invitation->event_id,
+                'share_token' => $shareToken,
+                'guest_name' => $invitation->guest_name,
+                'guest_email' => $invitation->guest_email,
+                'image_paths' => [],
+                'upload_count' => 0,
+            ]);
+        }
+
+        // Build the upload URL
+        $frontendUrl = rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/');
+        $uploadUrl = "{$frontendUrl}/upload/{$existingUpload->share_token}";
+
+        // Send email with upload link
+        Mail::to($invitation->guest_email)->send(
+            new GuestPhotoUploadMail(
+                $invitation->guest_name,
+                $invitation->guest_email,
+                $invitation->event->name,
+                $uploadUrl,
+            )
+        );
     }
 }

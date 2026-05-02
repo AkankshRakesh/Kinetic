@@ -6,6 +6,7 @@ import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/app/providers";
 import Image from "next/image";
+import GuestUploadsManager from "./components/GuestUploadsManager";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -55,6 +56,8 @@ function LogEntry({ stamp, label, accent }: { stamp: string; label: string; acce
 
 export default function EventDashboardPage() {
   const { session } = useAuth();
+
+
   const params = useParams<{ eventId: string }>();
   const [event, setEvent] = useState<EventItem | null>(null);
 
@@ -99,7 +102,6 @@ export default function EventDashboardPage() {
             {event?.eventDate ? ` // ${event.eventDate}` : ""}. Invitations, guests, telemetry, and responses are isolated to this event.
           </p>
         </div>
-
         <div className="flex w-full flex-col border-b border-[#2b2520]/60 xl:flex-row">
           <div className="flex-[1.4] border-b border-[#2b2520]/60 px-5 py-6 sm:px-8 lg:px-10 lg:py-7 xl:border-b-0 xl:border-r">
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

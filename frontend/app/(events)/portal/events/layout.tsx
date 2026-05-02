@@ -218,7 +218,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         {/* SIDEBAR */}
         <aside className="hidden lg:flex flex-col items-center w-18 shrink-0 border-r border-[#3b3430]/60 bg-[#0d1016]/90 py-5 gap-1 sticky top-15 h-[calc(100vh-60px)]">
           <div className="mb-4 text-[10px] font-bold tracking-[0.3em] text-[#ffb77b]">KL</div>
-          <SideRailButton icon={<EventsIcon />} label="EVENTS" router={router} pathname={pathname} route="/events" />
+          <SideRailButton icon={<EventsIcon />} label="IMAGES" router={router} pathname={pathname} route="/images" />
           <SideRailButton icon={<GridIcon />} label="GRID" router={router} pathname={pathname} route="/" />
           <SideRailButton icon={<GuestsIcon />} label="GUESTS" router={router} pathname={pathname} route="/guests" />
           <SideRailButton icon={<AnalyticsIcon />} label="ANALYTICS" router={router} pathname={pathname} route="/analytics" />
