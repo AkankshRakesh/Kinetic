@@ -9,5 +9,5 @@ data:
   APP_URL: "https://your-domain"
   QUEUE_CONNECTION: "database"
   SESSION_DRIVER: "file" # changing to array for API
-  CACHE_STORE: "database"
+  CACHE_STORE: "file"
   # Add other non-secret config here
