@@ -3,14 +3,16 @@ kind: Ingress
 metadata:
   name: backend-ingress
   namespace: kinetic-backend
-
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
-  - http:
+  - host: 100.27.210.58
+    http:
       paths:
 
-      - path: /auth
+      - path: /auth(/|$)(.*)
         pathType: Prefix
         backend:
           service:
@@ -18,7 +20,7 @@ spec:
             port:
               number: 8080
 
-      - path: /api
+      - path: /api(/|$)(.*)
         pathType: Prefix
         backend:
           service:
@@ -26,7 +28,7 @@ spec:
             port:
               number: 8080
 
-      - path: /sanctum
+      - path: /sanctum(/|$)(.*)
         pathType: Prefix
         backend:
           service:
