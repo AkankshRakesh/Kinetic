@@ -9,14 +9,6 @@ spec:
   rules:
   - http:
       paths:
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: backend-general
-            port:
-              number: 8080
-
       - path: /auth
         pathType: Prefix
         backend:
@@ -24,11 +16,11 @@ spec:
             name: backend-auth
             port:
               number: 8080
-
-      - path: /
+      
+      - path: /api/login
         pathType: Prefix
         backend:
           service:
-            name: backend-general
+            name: backend-auth
             port:
               number: 8080
