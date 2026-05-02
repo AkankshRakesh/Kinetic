@@ -25,3 +25,11 @@ spec:
             name: backend-general
             port:
               number: 8080
+
+      - path: /sanctum
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-auth
+            port:
+              number: 8080
