@@ -8,6 +8,6 @@ data:
   APP_DEBUG: "false"
   APP_URL: "https://your-domain"
   QUEUE_CONNECTION: "database"
-  SESSION_DRIVER: "array" # changing to array for API
+  SESSION_DRIVER: "file" # changing to array for API
   CACHE_STORE: "database"
   # Add other non-secret config here
