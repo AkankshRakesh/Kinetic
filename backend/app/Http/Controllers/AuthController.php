@@ -19,12 +19,13 @@ class AuthController extends Controller
             'password' => $request->string('password')->toString(),
         ]);
 
-        Auth::guard('web')->login($user);
-        $request->session()->regenerate();
+        // Generate API token for token-based authentication
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Registration successful.',
             'user' => $user,
+            'token' => $token,
         ], 201);
     }
 
@@ -32,6 +33,7 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
+        // Use the 'web' guard to validate credentials (supports attempt() method)
         if (! Auth::guard('web')->attempt($credentials)) {
             return response()->json([
                 'message' => 'Invalid credentials.',
@@ -41,11 +43,15 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $request->session()->regenerate();
+        $user = Auth::guard('web')->user();
+        
+        // Generate API token for token-based authentication
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful.',
-            'user' => $request->user(),
+            'user' => $user,
+            'token' => $token,
         ]);
     }
 
@@ -56,14 +62,8 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        if ($request->user()?->currentAccessToken()) {
-            $request->user()->currentAccessToken()->delete();
-        }
-
-        Auth::guard('web')->logout();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        // Delete the current access token
+        $request->user()->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Logout successful.',

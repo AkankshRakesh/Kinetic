@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Space_Grotesk, Newsreader } from 'next/font/google';
+import { apiGet, apiPost } from '@/lib/api/client';
 
 const uiFont = Space_Grotesk({
   subsets: ['latin'],
@@ -14,8 +15,6 @@ const displayFont = Newsreader({
   weight: ['500', '600', '700', '800'],
 });
 
-const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? '').replace(/\/$/, '');
-const INCLUDE_CREDENTIALS = process.env.NEXT_PUBLIC_AUTH_INCLUDE_CREDENTIALS !== 'false';
 
 type GuestUpload = {
   id: string;
@@ -62,20 +61,8 @@ export default function GuestUploadsManager({ eventId }: GuestUploadsProps) {
         setUploads([]);
         return;
       }
-      const response = await fetch(
-        `${AUTH_API_BASE_URL}/api/events/${eventId}/uploads`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-          },
-          credentials: INCLUDE_CREDENTIALS ? 'include' : 'same-origin',
-        },
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setUploads(data.data || []);
-      }
+      const data = await apiGet<{ data?: GuestUpload[] }>(`/api/events/${eventId}/uploads`);
+      setUploads(data.data || []);
     } catch (err) {
       console.error('Failed to load uploads:', err);
     } finally {
@@ -99,34 +86,18 @@ export default function GuestUploadsManager({ eventId }: GuestUploadsProps) {
     }
 
     try {
-      const response = await fetch(
-        `${AUTH_API_BASE_URL}/api/events/${eventId}/share-link`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-          },
-          credentials: INCLUDE_CREDENTIALS ? 'include' : 'same-origin',
-          body: JSON.stringify({
-            guest_name: guestName,
-            guest_email: guestEmail,
-            send_email: sendEmail,
-          }),
-        },
-      );
+      const data = await apiPost<{ message?: string }>(`/api/events/${eventId}/share-link`, {
+        guest_name: guestName,
+        guest_email: guestEmail,
+        send_email: sendEmail,
+      });
 
-      if (response.ok) {
-        setSuccess(sendEmail ? 'Share link generated and email sent!' : 'Share link generated! You can now share the link with the guest.');
-        setGuestName('');
-        setGuestEmail('');
-        setSendEmail(true);
-        setShowGenerateModal(false);
-        await loadUploads();
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Failed to generate share link');
-      }
+      setSuccess(sendEmail ? 'Share link generated and email sent!' : 'Share link generated! You can now share the link with the guest.');
+      setGuestName('');
+      setGuestEmail('');
+      setSendEmail(true);
+      setShowGenerateModal(false);
+      await loadUploads();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate share link');
     } finally {

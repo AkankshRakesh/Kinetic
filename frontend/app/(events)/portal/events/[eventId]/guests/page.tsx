@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useParams } from "next/navigation";
+import { apiGet, apiPost } from "@/lib/api/client";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -15,55 +16,6 @@ const displayFont = Newsreader({
   weight: ["500", "600", "700", "800"],
 });
 
-// ── Icons ──────────────────────────────────────────────────────────────────
-
-const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? "").replace(/\/$/, "");
-const CSRF_ENDPOINT = process.env.NEXT_PUBLIC_AUTH_CSRF_ENDPOINT ?? "/sanctum/csrf-cookie";
-const INCLUDE_CREDENTIALS = process.env.NEXT_PUBLIC_AUTH_INCLUDE_CREDENTIALS !== "false";
-
-function resolveApiUrl(pathOrUrl: string): string {
-  if (/^https?:\/\//i.test(pathOrUrl)) {
-    return pathOrUrl;
-  }
-
-  if (!AUTH_API_BASE_URL) {
-    return pathOrUrl;
-  }
-
-  const cleanPath = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
-  return `${AUTH_API_BASE_URL}${cleanPath}`;
-}
-
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? match[1] : null;
-}
-
-function buildJsonHeaders(): Headers {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  const xsrf = readCookie("XSRF-TOKEN");
-
-  if (xsrf) {
-    headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrf));
-  }
-
-  return headers;
-}
-
-async function ensureCsrfCookie(): Promise<void> {
-  const response = await fetch(resolveApiUrl(CSRF_ENDPOINT), {
-    method: "GET",
-    credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not initialize the invite request. Please refresh and try again.");
-  }
-}
 
 async function readResponseBody(response: Response): Promise<InvitationApiResponse> {
   return (await response.json().catch(() => ({}))) as InvitationApiResponse;
@@ -280,13 +232,9 @@ export default function GuestsPage() {
       }
 
       try {
-        const res = await fetch(resolveApiUrl(`/api/events/${eventId}/invite-guest`), {
-          method: "GET",
-          credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
-        });
-        const data = await readResponseBody(res);
+        const data = await apiGet<InvitationApiResponse>(`/api/events/${eventId}/invite-guest`);
 
-        if (!res.ok || !Array.isArray(data.data)) {
+        if (!Array.isArray(data.data)) {
           return;
         }
 
@@ -319,21 +267,14 @@ export default function GuestsPage() {
         throw new Error("Open an event before sending invitations.");
       }
 
-      await ensureCsrfCookie();
-
-      const res = await fetch(resolveApiUrl(`/api/events/${eventId}/invite-guest`), {
-        method: "POST",
-        headers: buildJsonHeaders(),
-        credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
-        body: JSON.stringify({
-          guestName: name,
-          guestEmail: email,
-          customMessage,
-          additionalGuestNames: inviteMultiple ? additionalNames : [],
-        }),
+      const data = await apiPost<InvitationApiResponse>(`/api/events/${eventId}/invite-guest`, {
+        guestName: name,
+        guestEmail: email,
+        customMessage,
+        additionalGuestNames: inviteMultiple ? additionalNames : [],
       });
-      const data = await readResponseBody(res);
-      if (!res.ok) {
+
+      if (!data) {
         const validationErrors = data.errors ? Object.values(data.errors).flat().join(", ") : "";
         throw new Error(validationErrors || data.message || "Failed to send invitation.");
       }

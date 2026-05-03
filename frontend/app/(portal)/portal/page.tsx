@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -5,6 +6,7 @@ import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { apiGet, apiPost } from "@/lib/api/client";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -15,10 +17,6 @@ const displayFont = Newsreader({
   subsets: ["latin"],
   weight: ["600", "700", "800"],
 });
-
-const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? "").replace(/\/$/, "");
-const CSRF_ENDPOINT = process.env.NEXT_PUBLIC_AUTH_CSRF_ENDPOINT ?? "/sanctum/csrf-cookie";
-const INCLUDE_CREDENTIALS = process.env.NEXT_PUBLIC_AUTH_INCLUDE_CREDENTIALS !== "false";
 
 type EventItem = {
   id: string;
@@ -37,49 +35,6 @@ type EventsResponse = {
   errors?: Record<string, string[]>;
 };
 
-function resolveApiUrl(pathOrUrl: string): string {
-  if (/^https?:\/\//i.test(pathOrUrl)) {
-    return pathOrUrl;
-  }
-
-  if (!AUTH_API_BASE_URL) {
-    return pathOrUrl;
-  }
-
-  const cleanPath = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
-  return `${AUTH_API_BASE_URL}${cleanPath}`;
-}
-
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? match[1] : null;
-}
-
-function buildJsonHeaders(): Headers {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  const xsrf = readCookie("XSRF-TOKEN");
-
-  if (xsrf) {
-    headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrf));
-  }
-
-  return headers;
-}
-
-async function ensureCsrfCookie(): Promise<void> {
-  const response = await fetch(resolveApiUrl(CSRF_ENDPOINT), {
-    method: "GET",
-    credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not initialize event creation.");
-  }
-}
 
 function SearchIcon() {
   return (
@@ -158,13 +113,9 @@ export default function PortalEventsPage() {
 
     async function loadEvents() {
       try {
-        const response = await fetch(resolveApiUrl("/api/events"), {
-          method: "GET",
-          credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
-        });
-        const data = (await response.json().catch(() => ({}))) as EventsResponse;
+        const data = await apiGet<EventsResponse>("/api/events");
 
-        if (!response.ok || !Array.isArray(data.data)) {
+        if (!Array.isArray(data.data)) {
           throw new Error(data.message || "Could not load events.");
         }
 
@@ -182,7 +133,7 @@ export default function PortalEventsPage() {
       }
     }
 
-    void loadEvents();
+    loadEvents();
 
     return () => {
       isMounted = false;
@@ -199,21 +150,13 @@ export default function PortalEventsPage() {
     setError(null);
 
     try {
-      await ensureCsrfCookie();
-
-      const response = await fetch(resolveApiUrl("/api/events"), {
-        method: "POST",
-        headers: buildJsonHeaders(),
-        credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
-        body: JSON.stringify({
-          name: newEventName.trim(),
-          location: newEventLocation.trim(),
-          eventDate: newEventDate,
-        }),
+      const data = await apiPost<EventsResponse>("/api/events", {
+        name: newEventName.trim(),
+        location: newEventLocation.trim(),
+        eventDate: newEventDate,
       });
-      const data = (await response.json().catch(() => ({}))) as EventsResponse;
 
-      if (!response.ok || !data.data || Array.isArray(data.data)) {
+      if (!data.data || Array.isArray(data.data)) {
         const validationErrors = data.errors ? Object.values(data.errors).flat().join(", ") : "";
         throw new Error(validationErrors || data.message || "Could not create event.");
       }

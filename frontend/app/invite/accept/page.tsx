@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Suspense, useState } from "react";
@@ -14,52 +15,6 @@ const displayFont = Newsreader({
   weight: ["600", "700"],
 });
 
-const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? "").replace(/\/$/, "");
-const CSRF_ENDPOINT = process.env.NEXT_PUBLIC_AUTH_CSRF_ENDPOINT ?? "/sanctum/csrf-cookie";
-
-function resolveApiUrl(pathOrUrl: string): string {
-  if (/^https?:\/\//i.test(pathOrUrl)) {
-    return pathOrUrl;
-  }
-
-  if (!AUTH_API_BASE_URL) {
-    return pathOrUrl;
-  }
-
-  const cleanPath = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
-  return `${AUTH_API_BASE_URL}${cleanPath}`;
-}
-
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? match[1] : null;
-}
-
-function buildJsonHeaders(): Headers {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  const xsrf = readCookie("XSRF-TOKEN");
-
-  if (xsrf) {
-    headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrf));
-  }
-
-  return headers;
-}
-
-async function ensureCsrfCookie(): Promise<void> {
-  const response = await fetch(resolveApiUrl(CSRF_ENDPOINT), {
-    method: "GET",
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not initialize your response. Please refresh and try again.");
-  }
-}
 
 type ResponseState = "ready" | "submitting" | "accepted" | "rejected" | "invalid" | "error";
 type InviteDecision = "accepted" | "rejected";
@@ -82,12 +37,13 @@ function AcceptInviteContent() {
     setStatusMessage(decision === "accepted" ? "Accepting your invitation..." : "Rejecting your invitation...");
 
     try {
-      await ensureCsrfCookie();
+        const apiUrl = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? "").replace(/\/$/, "");
+        const baseUrl = apiUrl ? apiUrl : "";
+        const endpoint = baseUrl + `/api/invitations/${encodeURIComponent(token)}/respond`;
 
-      const response = await fetch(resolveApiUrl(`/api/invitations/${encodeURIComponent(token)}/respond`), {
+        const response = await fetch(endpoint, {
         method: "POST",
-        headers: buildJsonHeaders(),
-        credentials: "include",
+          headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: decision,
           message,

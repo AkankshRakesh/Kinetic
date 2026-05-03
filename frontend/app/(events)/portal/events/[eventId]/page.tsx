@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/app/providers";
 import Image from "next/image";
 import GuestUploadsManager from "./components/GuestUploadsManager";
+import { apiGet } from "@/lib/api/client";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -17,9 +18,6 @@ const displayFont = Newsreader({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
 });
-
-const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? "").replace(/\/$/, "");
-const INCLUDE_CREDENTIALS = process.env.NEXT_PUBLIC_AUTH_INCLUDE_CREDENTIALS !== "false";
 
 type EventItem = {
   id: string;
@@ -32,18 +30,6 @@ type EventItem = {
   acceptedCount: number;
 };
 
-function resolveApiUrl(pathOrUrl: string): string {
-  if (/^https?:\/\//i.test(pathOrUrl)) {
-    return pathOrUrl;
-  }
-
-  if (!AUTH_API_BASE_URL) {
-    return pathOrUrl;
-  }
-
-  const cleanPath = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
-  return `${AUTH_API_BASE_URL}${cleanPath}`;
-}
 
 function LogEntry({ stamp, label, accent }: { stamp: string; label: string; accent: string }) {
   return (
@@ -65,16 +51,16 @@ export default function EventDashboardPage() {
     let isMounted = true;
 
     async function loadEvent() {
-      const response = await fetch(resolveApiUrl(`/api/events/${params.eventId}`), {
-        method: "GET",
-        credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
-      });
-      const data = (await response.json().catch(() => ({}))) as { data?: EventItem };
-
-      if (isMounted && response.ok && data.data) {
+      try {
+        const data = await apiGet<{ data?: EventItem }>(`/api/events/${params.eventId}`);
+        
+        if (isMounted && data.data) {
         setEvent(data.data);
+        }
+      } catch {
+        // Event not found or not accessible
       }
-    }
+      }
 
     void loadEvent();
 

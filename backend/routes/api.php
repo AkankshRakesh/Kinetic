@@ -18,36 +18,25 @@ Route::prefix('auth')->group(function () {
 });
 
 
-Route::prefix('api')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/events', [EventController::class, 'index']);
+    Route::post('/events', [EventController::class, 'store']);
+    Route::get('/events/{event}', [EventController::class, 'show']);
 
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/events', [EventController::class, 'index']);
-        Route::post('/events', [EventController::class, 'store']);
-        Route::get('/events/{event}', [EventController::class, 'show']);
+    Route::get('/events/{event}/invite-guest', [GuestInvitationController::class, 'index']);
+    Route::post('/events/{event}/invite-guest', [GuestInvitationController::class, 'send']);
 
-        Route::get('/events/{event}/invite-guest', [GuestInvitationController::class, 'index']);
-        Route::post('/events/{event}/invite-guest', [GuestInvitationController::class, 'send']);
-
-        Route::post('/events/{event}/share-link', [GuestUploadController::class, 'generateShareLink']);
-        Route::get('/events/{event}/uploads', [GuestUploadController::class, 'getEventUploads']);
-    });
-
-    // public
-    Route::get('/invitations/{token}/accept', [GuestInvitationController::class, 'accept']);
-    Route::post('/invitations/{token}/respond', [GuestInvitationController::class, 'respond']);
-
-    Route::get('/uploads/{shareToken}', [GuestUploadController::class, 'checkShareLink'])
-        ->withoutMiddleware([
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            \Illuminate\Session\Middleware\StartSession::class,
-        ]);
-
-    Route::post('/uploads/{shareToken}', [GuestUploadController::class, 'uploadImages'])
-        ->withoutMiddleware([
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            \Illuminate\Session\Middleware\StartSession::class,
-        ]);
+    Route::post('/events/{event}/share-link', [GuestUploadController::class, 'generateShareLink']);
+    Route::get('/events/{event}/uploads', [GuestUploadController::class, 'getEventUploads']);
 });
+
+// public
+Route::get('/invitations/{token}/accept', [GuestInvitationController::class, 'accept']);
+Route::post('/invitations/{token}/respond', [GuestInvitationController::class, 'respond']);
+
+Route::get('/uploads/{shareToken}', [GuestUploadController::class, 'checkShareLink']);
+
+Route::post('/uploads/{shareToken}', [GuestUploadController::class, 'uploadImages']);
 
 
 // Route::post('/register', [AuthController::class, 'register']);

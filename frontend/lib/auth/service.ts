@@ -8,26 +8,23 @@ import type {
 } from "./types";
 
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "mock";
-const AUTH_BACKEND = process.env.NEXT_PUBLIC_AUTH_BACKEND ?? "laravel-sanctum";
+const AUTH_BACKEND = process.env.NEXT_PUBLIC_AUTH_BACKEND ?? "laravel-token";
 const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? "").replace(/\/$/, "");
 
 const LOGIN_ENDPOINT =
   process.env.NEXT_PUBLIC_AUTH_LOGIN_ENDPOINT ??
-  (AUTH_BACKEND === "generic" ? "/api/auth/login" : "/api/login");
+  (AUTH_BACKEND === "generic" ? "/api/auth/login" : "/api/auth/login");
 const REGISTER_ENDPOINT =
   process.env.NEXT_PUBLIC_AUTH_REGISTER_ENDPOINT ??
-  (AUTH_BACKEND === "generic" ? "/api/auth/register" : "/api/register");
+  (AUTH_BACKEND === "generic" ? "/api/auth/register" : "/api/auth/register");
 const LOGOUT_ENDPOINT =
   process.env.NEXT_PUBLIC_AUTH_LOGOUT_ENDPOINT ??
-  (AUTH_BACKEND === "generic" ? "/api/auth/logout" : "/api/logout");
-const USER_ENDPOINT = process.env.NEXT_PUBLIC_AUTH_USER_ENDPOINT ?? "/api/user";
-const CSRF_ENDPOINT = process.env.NEXT_PUBLIC_AUTH_CSRF_ENDPOINT ?? "/sanctum/csrf-cookie";
+  (AUTH_BACKEND === "generic" ? "/api/auth/logout" : "/api/auth/logout");
+const USER_ENDPOINT = process.env.NEXT_PUBLIC_AUTH_USER_ENDPOINT ?? "/api/auth/user";
 
-const INCLUDE_CREDENTIALS =
-  (process.env.NEXT_PUBLIC_AUTH_INCLUDE_CREDENTIALS ?? (AUTH_BACKEND === "laravel-sanctum" ? "true" : "false")) ===
-  "true";
+const INCLUDE_CREDENTIALS = false;
 
-const IS_LARAVEL_SANCTUM = AUTH_BACKEND === "laravel-sanctum";
+const IS_LARAVEL_SANCTUM = false;
 const IS_LARAVEL_TOKEN = AUTH_BACKEND === "laravel-token";
 
 const SESSION_STORAGE_KEY = "kinetic.auth.session";
@@ -99,16 +96,11 @@ function readCookie(name: string): string | null {
   return match ? match[1] : null;
 }
 
-function buildCsrfHeaders(): Headers {
+function buildHeaders(accessToken?: string): Headers {
   const headers = new Headers({ "Content-Type": "application/json" });
 
-  if (!IS_LARAVEL_SANCTUM) {
-    return headers;
-  }
-
-  const xsrf = readCookie("XSRF-TOKEN");
-  if (xsrf) {
-    headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrf));
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   return headers;
@@ -191,14 +183,13 @@ function normalizeAuthPayload(responseData: unknown): ApiAuthResponse {
 
 async function fetchCurrentUser(accessToken?: string): Promise<AuthUser | null> {
   const headers = new Headers();
-  if (accessToken && IS_LARAVEL_TOKEN) {
+  if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   const response = await fetch(resolveUrl(USER_ENDPOINT), {
     method: "GET",
     headers,
-    credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
   });
 
   if (!response.ok) {
@@ -212,21 +203,6 @@ async function fetchCurrentUser(accessToken?: string): Promise<AuthUser | null> 
 
   const root = responseData as Record<string, unknown>;
   return normalizeUser(root.user ?? root.data ?? root);
-}
-
-async function ensureSanctumCsrfCookie(): Promise<void> {
-  if (!IS_LARAVEL_SANCTUM) {
-    return;
-  }
-
-  const response = await fetch(resolveUrl(CSRF_ENDPOINT), {
-    method: "GET",
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not initialize Laravel CSRF cookie.");
-  }
 }
 
 async function parseApiResponse(response: Response, fallbackMessage: string): Promise<ApiAuthResponse> {
@@ -335,61 +311,34 @@ const apiAdapter: AuthAdapter = {
 
     if (raw && raw.expiresAt < Date.now()) {
       removeValue(SESSION_STORAGE_KEY);
-    }
-
-    if (IS_LARAVEL_SANCTUM) {
-      const user = await fetchCurrentUser();
-      if (!user) {
-        removeValue(SESSION_STORAGE_KEY);
-        return null;
-      }
-
-      const session: AuthSession = {
-        accessToken: raw?.accessToken,
-        expiresAt: Date.now() + 1000 * 60 * 60 * 24,
-        user,
-      };
-      writeJson(SESSION_STORAGE_KEY, session);
-      return session;
+      return null;
     }
 
     if (!raw) {
       return null;
     }
 
-    if (IS_LARAVEL_TOKEN) {
-      const user = await fetchCurrentUser(raw.accessToken);
-      if (!user) {
-        removeValue(SESSION_STORAGE_KEY);
-        return null;
-      }
-
-      const session: AuthSession = {
-        ...raw,
-        user,
-      };
-      writeJson(SESSION_STORAGE_KEY, session);
-      return session;
+    // Verify token by fetching current user
+    const user = await fetchCurrentUser(raw.accessToken);
+    if (!user) {
+      removeValue(SESSION_STORAGE_KEY);
+      return null;
     }
 
-    return raw;
+    const session: AuthSession = {
+      ...raw,
+      user,
+    };
+    writeJson(SESSION_STORAGE_KEY, session);
+    return session;
   },
 
   async login(payload) {
-    await ensureSanctumCsrfCookie();
-
-    const requestPayload =
-      AUTH_BACKEND === "generic"
-        ? payload
-        : {
-            ...payload,
-            password_confirmation: payload.password,
-          };
+    const requestPayload = payload;
 
     const response = await fetch(resolveUrl(LOGIN_ENDPOINT), {
       method: "POST",
-      headers: buildCsrfHeaders(),
-      credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
+      headers: buildHeaders(),
       body: JSON.stringify(requestPayload),
     });
 
@@ -404,20 +353,11 @@ const apiAdapter: AuthAdapter = {
   },
 
   async register(payload) {
-    await ensureSanctumCsrfCookie();
-
-    const requestPayload =
-      AUTH_BACKEND === "generic"
-        ? payload
-        : {
-            ...payload,
-            password_confirmation: payload.password,
-          };
+    const requestPayload = payload;
 
     const response = await fetch(resolveUrl(REGISTER_ENDPOINT), {
       method: "POST",
-      headers: buildCsrfHeaders(),
-      credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
+      headers: buildHeaders(),
       body: JSON.stringify(requestPayload),
     });
 
@@ -433,15 +373,11 @@ const apiAdapter: AuthAdapter = {
 
   async logout() {
     const session = readJson<AuthSession | null>(SESSION_STORAGE_KEY, null);
-    const headers = buildCsrfHeaders();
-    if (session?.accessToken && IS_LARAVEL_TOKEN) {
-      headers.set("Authorization", `Bearer ${session.accessToken}`);
-    }
+    const headers = buildHeaders(session?.accessToken);
 
     await fetch(resolveUrl(LOGOUT_ENDPOINT), {
       method: "POST",
       headers,
-      credentials: INCLUDE_CREDENTIALS ? "include" : "same-origin",
     }).catch(() => null);
 
     removeValue(SESSION_STORAGE_KEY);
