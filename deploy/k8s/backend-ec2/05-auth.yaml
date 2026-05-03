@@ -5,7 +5,6 @@ metadata:
   namespace: kinetic-backend
 spec:
   replicas: 2
-  priorityClassName: high-priority
   selector:
     matchLabels:
       app: backend-auth
@@ -14,6 +13,7 @@ spec:
       labels:
         app: backend-auth
     spec:
+      priorityClassName: high-priority
       containers:
         - name: auth
           image: akankshrakesh/kinetic-backend:latest # or use :${BUILD_NUMBER}
