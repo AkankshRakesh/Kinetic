@@ -5,6 +5,7 @@ metadata:
   namespace: kinetic-backend
 spec:
   replicas: 1
+  priorityClassName: low-priority
   selector:
     matchLabels:
       app: backend-email
@@ -22,3 +23,10 @@ spec:
                 name: backend-config
             - secretRef:
                 name: backend-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

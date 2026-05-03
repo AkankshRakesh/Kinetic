@@ -5,6 +5,7 @@ metadata:
   namespace: kinetic-backend
 spec:
   replicas: 1
+  priorityClassName: high-priority
   selector:
     matchLabels:
       app: backend-general
@@ -23,6 +24,15 @@ spec:
                 name: backend-secrets
           ports:
             - containerPort: 8080
+          
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
           readinessProbe:
             httpGet:
               path: /up
