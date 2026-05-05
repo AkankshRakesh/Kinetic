@@ -47,6 +47,19 @@ stages {
       '''
     }
   }
+  
+  stage('Wait for K8s Ready') {
+    steps {
+      bat '''
+        for /l %%i in (1,1,20) do (
+          kubectl --kubeconfig=deploy\\infra\\kubeconfig get nodes && exit /b 0
+          echo Waiting for cluster...
+          timeout /t 15
+        )
+        exit /b 1
+      '''
+    }
+  }
 
   stage('Fetch Kubeconfig') {
     steps {
@@ -57,7 +70,10 @@ stages {
 
         scp -i kin.pem ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
 
-        powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml"
+        cd ..\\..
+
+        powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
+        kubectl apply -f temp-configmap.yaml
       '''
     }
   }
@@ -65,39 +81,40 @@ stages {
   stage('Deploy') {
       steps {
         withCredentials([
-          withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]),
           file(credentialsId: 'backend-ec2-secrets-env', variable: 'BACKEND_SECRET_ENV')
         ]) {
-          bat '''
-          REM Apply namespace + config
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\00-namespace.yaml
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\01-configmap.yaml
+          withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
+            bat '''
+            REM Apply namespace + config
+            kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\00-namespace.yaml
+            kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\01-configmap.yaml
 
-          REM 🔥 Apply priority classes FIRST (cluster-wide)
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\02-priority.yaml
+            REM 🔥 Apply priority classes FIRST (cluster-wide)
+            kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\02-priority.yaml
 
-          REM Secrets
-          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% create secret generic backend-secrets --from-env-file=%BACKEND_SECRET_ENV% --dry-run=client -o yaml | kubectl --kubeconfig=%KUBECONFIG% apply -f -
+            REM Secrets
+            kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% create secret generic backend-secrets --from-env-file=%BACKEND_SECRET_ENV% --dry-run=client -o yaml | kubectl --kubeconfig=%KUBECONFIG% apply -f -
 
-          REM Deploy services
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\04-general.yaml
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\05-auth.yaml
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\06-email.yaml
-          kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\07-ingress.yaml
+            REM Deploy services
+            kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\04-general.yaml
+            kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\05-auth.yaml
+            kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\06-email.yaml
+            kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\07-ingress.yaml
 
-          REM Update images
-          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-general general=%IMAGE_URI%
-          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-auth auth=%IMAGE_URI%
-          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-email email=%IMAGE_URI%
+            REM Update images
+            kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-general general=%IMAGE_URI%
+            kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-auth auth=%IMAGE_URI%
+            kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% set image deployment/backend-email email=%IMAGE_URI%
 
-          REM Wait for rollout
-          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-general --timeout=180s
-          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-auth --timeout=180s
-          kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-email --timeout=180s
+            REM Wait for rollout
+            kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-general --timeout=180s
+            kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-auth --timeout=180s
+            kubectl --kubeconfig=%KUBECONFIG% -n %K8S_NAMESPACE% rollout status deployment/backend-email --timeout=180s
 
-          REM Debug visibility
-          kubectl --kubeconfig=%KUBECONFIG% get pods -n %K8S_NAMESPACE%
-          '''
+            REM Debug visibility
+            kubectl --kubeconfig=%KUBECONFIG% get pods -n %K8S_NAMESPACE%
+            '''
+          }
         }
       }
     }

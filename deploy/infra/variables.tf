@@ -1,3 +1,11 @@
-variable "key_name" {kin}
-variable "my_ip" {}
-variable "jenkins_ip" {}
+variable "key_name" {
+  type = string
+}
+
+variable "my_ip" {
+  type = string
+}
+
+variable "jenkins_ip" {
+  type = string
+}
