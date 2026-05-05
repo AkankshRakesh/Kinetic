@@ -55,16 +55,12 @@ stages {
       }
     }
   }
-  
-  stage('Wait for K8s Ready') {
+
+  stage('Wait for EC2 SSH') {
     steps {
       bat '''
-        for /l %%i in (1,1,20) do (
-          kubectl --kubeconfig=deploy\\infra\\kubeconfig get nodes && exit /b 0
-          echo Waiting for cluster...
-          timeout /t 15
-        )
-        exit /b 1
+        echo Waiting for EC2 to be reachable...
+        timeout /t 90
       '''
     }
   }
@@ -92,6 +88,20 @@ stages {
       }
     }
   }
+  
+  stage('Wait for K8s Ready') {
+    steps {
+      bat '''
+        for /l %%i in (1,1,20) do (
+          kubectl --kubeconfig=deploy\\infra\\kubeconfig get nodes && exit /b 0
+          echo Waiting for cluster...
+          timeout /t 15
+        )
+        exit /b 1
+      '''
+    }
+  }
+
 
   stage('Deploy') {
       steps {
