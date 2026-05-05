@@ -71,18 +71,25 @@ stages {
 
   stage('Fetch Kubeconfig') {
     steps {
-      bat '''
-        cd deploy\\infra
+      withCredentials([
+        sshUserPrivateKey(
+          credentialsId: 'ec2-key',
+          keyFileVariable: 'SSH_KEY'
+        )
+      ]) {
+        bat '''
+          cd deploy\\infra
 
-        for /f "tokens=*" %%i in ('terraform output -raw public_ip') do set EC2_IP=%%i
+          for /f "tokens=*" %%i in ('terraform output -raw public_ip') do set EC2_IP=%%i
 
-        scp -i kin.pem ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
+          scp -i %SSH_KEY% -o StrictHostKeyChecking=no ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
 
-        cd ..\\..
+          cd ..\\..
 
-        powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
-        kubectl apply -f temp-configmap.yaml
-      '''
+          powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
+          kubectl apply -f temp-configmap.yaml
+        '''
+      }
     }
   }
 
