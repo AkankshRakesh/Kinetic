@@ -59,8 +59,7 @@ stages {
   stage('Wait for EC2 SSH') {
     steps {
       bat '''
-        echo Waiting for EC2 to be reachable...
-        timeout /t 90
+        powershell -Command "Start-Sleep -Seconds 90"
       '''
     }
   }
