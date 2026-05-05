@@ -109,7 +109,7 @@ stages {
           cd ..\\..
 
           powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
-          kubectl apply -f temp-configmap.yaml
+          kubectl --kubeconfig=%WORKSPACE%\\deploy\\infra\\kubeconfig apply -f temp-configmap.yaml
         '''
       }
     }
