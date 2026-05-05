@@ -110,7 +110,7 @@ stages {
 
           powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
           powershell -Command "(Get-Content deploy\\infra\\kubeconfig) -replace '172\\.31\\.[0-9]+\\.[0-9]+', '%EC2_IP%' | Set-Content deploy\\infra\\kubeconfig"
-          kubectl --kubeconfig=%WORKSPACE%\\deploy\\infra\\kubeconfig apply -f temp-configmap.yaml
+          
         '''
       }
     }
@@ -140,6 +140,7 @@ stages {
             REM Apply namespace + config
             kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\00-namespace.yaml
             kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\01-configmap.yaml
+            kubectl --kubeconfig=%KUBECONFIG% apply -f temp-configmap.yaml
 
             REM 🔥 Apply priority classes FIRST (cluster-wide)
             kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\02-priority.yaml
