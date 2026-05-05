@@ -36,6 +36,23 @@ stages {
     }
   }
 
+  stage('Provision Infra') {
+    steps {
+      dir('infra') {
+        bat 'terraform init'
+        bat 'terraform apply -auto-approve'
+      }
+    }
+  }
+
+  stage('Fetch Kubeconfig') {
+    steps {
+      bat '''
+      ssh -i kinetic.pem ubuntu@<EC2_IP> "cat ~/.kube/config" > kubeconfig
+      '''
+    }
+  }
+
   stage('Deploy') {
       steps {
         withCredentials([
