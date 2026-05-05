@@ -38,13 +38,21 @@ stages {
 
   stage('Provision Infra (Terraform)') {
     steps {
-      bat '''
-        cd deploy\\infra
+      withCredentials([
+        usernamePassword(
+          credentialsId: 'aws-creds',
+          usernameVariable: 'AWS_ACCESS_KEY_ID',
+          passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+        )
+      ]) {
+        bat '''
+          cd deploy\\infra
 
-        terraform init
-        terraform apply -auto-approve ^
-          -var "key_name=kin"
-      '''
+          terraform init
+          terraform apply -auto-approve ^
+            -var "key_name=kin" ^
+        '''
+      }
     }
   }
   
