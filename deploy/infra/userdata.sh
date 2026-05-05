@@ -84,3 +84,6 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main
 sleep 30
 
 kubectl get nodes
+
+cp /etc/kubernetes/admin.conf /home/ubuntu/kubeconfig
+chown ubuntu:ubuntu /home/ubuntu/kubeconfig

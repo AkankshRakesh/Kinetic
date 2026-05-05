@@ -36,19 +36,28 @@ stages {
     }
   }
 
-  stage('Provision Infra') {
+  stage('Provision Infra (Terraform)') {
     steps {
-      dir('infra') {
-        bat 'terraform init'
-        bat 'terraform apply -auto-approve'
-      }
+      bat '''
+        cd deploy\\infra
+
+        terraform init
+        terraform apply -auto-approve ^
+          -var "key_name=kin"
+      '''
     }
   }
 
   stage('Fetch Kubeconfig') {
     steps {
       bat '''
-      ssh -i kinetic.pem ubuntu@<EC2_IP> "cat ~/.kube/config" > kubeconfig
+        cd deploy\\infra
+
+        for /f "tokens=*" %%i in ('terraform output -raw public_ip') do set EC2_IP=%%i
+
+        scp -i kin.pem ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
+
+        powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml"
       '''
     }
   }
@@ -56,7 +65,7 @@ stages {
   stage('Deploy') {
       steps {
         withCredentials([
-          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG'),
+          withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]),
           file(credentialsId: 'backend-ec2-secrets-env', variable: 'BACKEND_SECRET_ENV')
         ]) {
           bat '''

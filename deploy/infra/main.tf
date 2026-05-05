@@ -5,7 +5,7 @@ provider "aws" {
 resource "aws_instance" "k8s" {
   ami           = "ami-05cf1e9f73fbad2e2"
   instance_type = "c7i-flex.large"
-  key_name      = kin.pem
+  key_name      = var.key_name
 
   vpc_security_group_ids = [aws_security_group.k8s.id]
 

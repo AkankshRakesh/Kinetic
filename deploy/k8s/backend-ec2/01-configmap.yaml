@@ -6,7 +6,7 @@ metadata:
 data:
   APP_ENV: "production"
   APP_DEBUG: "false"
-  APP_URL: "http://18.209.57.159"
+  APP_URL: "http://REPLACE_ME"
   QUEUE_CONNECTION: "database"
   SESSION_DRIVER: "file" # changing to array for API
   CACHE_STORE: "file"
