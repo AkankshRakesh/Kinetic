@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 resource "aws_instance" "k8s" {
-  ami           = "ami-05cf1e9f73fbad2e2"
+  ami           = "ami-0388e3ada3d9812da"
   instance_type = "c7i-flex.large"
   key_name      = var.key_name
 
