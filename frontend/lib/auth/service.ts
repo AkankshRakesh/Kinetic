@@ -97,7 +97,10 @@ function readCookie(name: string): string | null {
 }
 
 function buildHeaders(accessToken?: string): Headers {
-  const headers = new Headers({ "Content-Type": "application/json" });
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "Accept": "application/json"
+  });
 
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
