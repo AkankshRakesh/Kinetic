@@ -61,6 +61,7 @@ export default function LoginAuthPanel({ redirectTo }: LoginAuthPanelProps) {
       if (mode === "login") {
         await login({ email: trimmedEmail, password });
       } else {
+        console.log("Registering with", { name: name.trim(), email: trimmedEmail, password });
         await register({
           name: name.trim(),
           email: trimmedEmail,

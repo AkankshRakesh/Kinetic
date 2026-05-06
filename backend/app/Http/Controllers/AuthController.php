@@ -13,6 +13,7 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
+        echo "Received registration request with data: " . json_encode($request->all()) . "\n";
         $user = User::create([
             'name' => $request->string('name')->toString(),
             'email' => $request->string('email')->toString(),

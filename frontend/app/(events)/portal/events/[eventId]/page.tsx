@@ -72,109 +72,97 @@ export default function EventDashboardPage() {
   const acceptedPercent = event?.invitationCount ? Math.round((event.acceptedCount / event.invitationCount) * 100) : 0;
 
   return (
-    <main className={`${uiFont.className} min-h-screen bg-[#090b10] text-[#e5e2e3]`}>
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: "easeOut" }}
-      >
-        <div className="border-b border-[#2b2520]/60 px-5 pb-5 pt-6 sm:px-8 lg:px-10 lg:pt-8">
-          <p className="text-[10px] tracking-[0.28em] text-[#a58f83]">EVENT_STATUS: {event?.status ?? "LOADING"}</p>
-          <h1 className={`${displayFont.className} mt-1 text-4xl font-semibold italic leading-none text-[#ffb77b] sm:text-5xl`}>
-            {event?.name ?? "Event Terminal"}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#b9a59b]">
-            {event?.location ?? event?.region ?? "Event-specific command center"}
-            {event?.eventDate ? ` // ${event.eventDate}` : ""}. Invitations, guests, telemetry, and responses are isolated to this event.
-          </p>
-        </div>
-        <div className="flex w-full flex-col border-b border-[#2b2520]/60 xl:flex-row">
-          <div className="flex-[1.4] border-b border-[#2b2520]/60 px-5 py-6 sm:px-8 lg:px-10 lg:py-7 xl:border-b-0 xl:border-r">
-            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className={`${displayFont.className} text-3xl italic text-[#e6dad3]`}>RSVP Momentum</h2>
-                <p className="mt-0.5 text-[10px] tracking-[0.18em] text-[#8f8078]">{event?.region ?? "AWS | ap-south-1"}</p>
-              </div>
-              <div className="sm:text-right">
-                <p className="text-4xl font-semibold italic text-[#ffb77b]">{acceptedPercent}%</p>
-                <p className="text-[10px] tracking-[0.2em] text-[#8f8078]">ACCEPTED</p>
-              </div>
-            </div>
+    <main className={`${uiFont.className} min-h-screen bg-[#0b0d0f] text-[#e6e1dd] py-10`}> 
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+        <div className="max-w-6xl mx-auto px-6">
+          <header className="mb-8">
+            <p className="text-[10px] tracking-[0.28em] text-[#a58f83]">EVENT_STATUS: {event?.status ?? "LOADING"}</p>
+            <h1 className={`${displayFont.className} text-5xl font-semibold italic text-[#f6d3a6] leading-tight`}>Event Terminal</h1>
+            <p className="mt-2 text-sm text-[#b9a59b]">Event-specific command center for managing high-stakes logistics, guest protocols, and synthetic telemetry.</p>
+          </header>
 
-            <div className="relative h-44 overflow-hidden rounded-lg border border-[#302922] bg-[#0f1319]">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(255,183,123,0.16),transparent_40%)]" />
-              <svg viewBox="0 0 600 220" className="absolute inset-0 h-full w-full" role="img" aria-label="Momentum graph">
-                <path d="M0,160 C90,70 180,190 260,130 C320,90 390,55 460,110 C505,145 555,178 600,80" fill="none" stroke="#ffb77b" strokeWidth="3" strokeDasharray="8 6" />
-                <path d="M0,170 C100,120 170,100 245,150 C320,203 420,45 510,130 C545,165 580,190 600,200" fill="none" stroke="#8d6b56" strokeWidth="2" opacity="0.8" />
-              </svg>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <section className="lg:col-span-2">
+              <div className="rounded-lg border border-[#2c2520] bg-[#0f1113] p-8">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h2 className={`${displayFont.className} text-3xl italic text-[#e6dad3]`}>RSVP Momentum</h2>
+                    <p className="text-[10px] tracking-[0.18em] text-[#8f8078] mt-1">{event?.region ?? "AWS | ap-south-1"}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-5xl font-semibold italic text-[#f3bf7a]">{acceptedPercent}%</p>
+                    <p className="text-[10px] tracking-[0.2em] text-[#8f8078]">ACCEPTED</p>
+                  </div>
+                </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-3 border-t border-[#2b2520] pt-4 text-[#dbcac1]">
-              <div>
-                <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">INVITES</p>
-                <p className="mt-1 text-2xl font-medium">{event?.invitationCount ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">ACCEPTED</p>
-                <p className="mt-1 text-2xl font-medium">{event?.acceptedCount ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">PENDING</p>
-                <p className="mt-1 text-2xl font-medium">{Math.max((event?.invitationCount ?? 0) - (event?.acceptedCount ?? 0), 0)}</p>
-              </div>
-            </div>
-          </div>
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="w-full h-56 rounded-md border border-[#302922] bg-gradient-to-b from-[#0f1214] to-[#0b0d0f] flex items-center justify-center">
+                      <div className="text-center">
+                        <p className="text-[110px] font-extralight text-[#2a221f] -tracking-tight opacity-40">{acceptedPercent}%</p>
+                        <p className="-mt-20 text-2xl font-semibold text-[#f3bf7a]">{acceptedPercent}%</p>
+                      </div>
+                    </div>
+                  </div>
 
-          <div className="flex-[0.85] px-5 py-6 sm:px-8 lg:py-7">
-            <h2 className={`${displayFont.className} mb-5 text-3xl italic text-[#e6dad3]`}>Guest Flow</h2>
-            <div
-              className="mx-auto grid h-44 w-44 place-items-center rounded-full border border-[#3c332d]"
-              style={{ background: `conic-gradient(#ffb77b 0deg, #ffb77b ${acceptedPercent * 3.6}deg, #201f23 ${acceptedPercent * 3.6}deg 360deg)` }}
-            >
-              <div className="grid h-36 w-36 place-items-center rounded-full bg-[#0f1319] text-center">
-                <div>
-                  <p className="text-4xl font-medium text-[#ffb77b]">{acceptedPercent}%</p>
-                  <p className="text-[10px] tracking-[0.2em] text-[#8f8078]">RSVP</p>
+                  <div className="w-64">
+                    <div className="rounded-md border border-[#2b2520] bg-[#0e1113] p-4 mb-4">
+                      <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">INVITES</p>
+                      <p className="mt-1 text-2xl font-medium text-[#e6ddd5]">{event?.invitationCount ?? 0}</p>
+                    </div>
+                    <div className="rounded-md border border-[#2b2520] bg-[#0e1113] p-4 mb-4">
+                      <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">ACCEPTED</p>
+                      <p className="mt-1 text-2xl font-medium text-[#f3bf7a]">{event?.acceptedCount ?? 0}</p>
+                    </div>
+                    <div className="rounded-md border border-[#2b2520] bg-[#0e1113] p-4">
+                      <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">PENDING</p>
+                      <p className="mt-1 text-2xl font-medium text-[#e6ddd5]">{Math.max((event?.invitationCount ?? 0) - (event?.acceptedCount ?? 0), 0)}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="grid min-h-80 grid-cols-1 xl:grid-cols-[0.9fr_1.1fr_1.1fr]">
-          <div className="border-b border-[#2b2520]/60 px-5 py-6 sm:px-8 lg:px-10 lg:py-7 xl:border-b-0 xl:border-r">
-            <h2 className={`${displayFont.className} mb-5 text-2xl italic text-[#e6dad3]`}>Protocol Log</h2>
-            <ul className="space-y-5">
-              <LogEntry stamp="LIVE // RSVP" label="Event invitation scope is isolated" accent="#c8ff6c" />
-              <LogEntry stamp="SYNC // GUESTS" label="Guest roster bound to selected event" accent="#ffcf80" />
-              <LogEntry stamp="MAIL // TOKEN" label="Response links remain secure by invite token" accent="#67d4ff" />
-            </ul>
-          </div>
-          <div className="relative min-h-65 overflow-hidden border-b border-[#2b2520]/60 xl:border-b-0 xl:border-r">
-            {/* <Image
-              src="/events.gif"
-              alt=""
-              aria-hidden="true"
-              fill
-              unoptimized
-              className="object-cover object-center opacity-85"
-              sizes="(min-width: 1280px) 33vw, 100vw"
-            /> */}
-            <div className="absolute inset-0 bg-linear-to-r from-[#090b10]/80 via-[#090b10]/25 to-[#090b10]/65" />
-            <div className="absolute left-5 top-5 rounded-sm border border-[#ffb77b]/45 bg-[#090b10]/80 px-2 py-1 text-[9px] font-semibold tracking-[0.2em] text-[#ffb77b]">
-              EVENT_SIGNAL
-            </div>
-          </div>
-          <div className="relative px-5 py-6 sm:px-8 lg:py-7">
-            <h2 className={`${displayFont.className} mb-3 text-3xl italic text-[#e6dad3]`}>Synthetic Catalyst 01</h2>
-            <p className="max-w-sm text-sm leading-relaxed text-[#c5b3a8]">
-              Open the Guests rail to send event-specific invitations and review responses for this event.
-            </p>
-            <div className="mt-24">
-              <p className="text-[10px] tracking-[0.2em] text-[#8f8078]">ACTIVE USER</p>
-              <p className="mt-1 text-sm font-medium text-[#ffcfaa]">{session?.user.name}</p>
-              <p className="text-xs text-[#9f8e86]">{session?.user.email}</p>
-            </div>
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="rounded-lg border border-[#2b2520] bg-[#0f1113] p-4">
+                  <h3 className={`${displayFont.className} text-xl italic text-[#e6dad3] mb-3`}>Protocol Log</h3>
+                  <div className="bg-[#070808] rounded-md p-4 text-xs text-[#c9bdae]" style={{ minHeight: 180 }}>
+                    <ul className="space-y-2">
+                      {["14:22:01  SYSTEM_BOOT: Event terminal services initialized.", "14:22:04  SECURE_TUNNEL: Establishing ap-south-1 connection...", "14:22:06  AUTH: Operator identity verified (Level 4).", "14:22:09  WARNING: No guests currently queued for protocol.", "14:22:15  LOG: Waiting for synthetic catalyst deployment."].map((l, i) => (
+                        <li key={i} className="text-[12px]">
+                          <span className="text-[#9f8e86] mr-3">•</span>
+                          <span className="font-mono text-[#d6c9bd]">{l}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-[#2b2520] bg-[#0f1113] p-6">
+                  <h3 className={`${displayFont.className} text-2xl italic text-[#e6dad3]`}>Synthetic Catalyst 01</h3>
+                  <p className="mt-2 text-sm text-[#c5b3a8]">Open the Guests rail to send event-specific invitations and initiate the primary catalyst protocol.</p>
+                  <div className="mt-6 border-t border-[#2b2520] pt-4 text-sm text-[#8f8078]">
+                    <p className="text-[10px] tracking-[0.2em]">ACTIVE USER</p>
+                    <p className="mt-1 text-sm font-medium text-[#ffcfaa]">{session?.user.name}</p>
+                    <p className="text-xs text-[#9f8e86]">{session?.user.email}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <aside>
+              <div className="rounded-lg border border-[#2b2520] bg-[#0f1113] p-6 flex flex-col items-center">
+                <div className="h-44 w-44 rounded-full border border-[#3c332d] flex items-center justify-center mb-4" style={{ background: `conic-gradient(#f3bf7a 0deg, #f3bf7a ${acceptedPercent * 3.6}deg, #151517 ${acceptedPercent * 3.6}deg 360deg)` }}>
+                  <div className="h-36 w-36 rounded-full bg-[#0b0d0f] flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-4xl font-semibold text-[#f3bf7a]">{acceptedPercent}%</p>
+                      <p className="text-[10px] tracking-[0.2em] text-[#8f8078]">RSVP</p>
+                    </div>
+                  </div>
+                </div>
+                <h4 className={`${displayFont.className} text-lg italic text-[#e6dad3] mb-2`}>Guest Flow</h4>
+                <p className="text-sm text-[#c5b3a8] text-center">Real-time capacity and arrival sequencing for optimized entry protocols.</p>
+              </div>
+            </aside>
           </div>
         </div>
       </motion.div>

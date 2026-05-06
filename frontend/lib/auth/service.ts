@@ -97,7 +97,10 @@ function readCookie(name: string): string | null {
 }
 
 function buildHeaders(accessToken?: string): Headers {
-  const headers = new Headers({ "Content-Type": "application/json" });
+  const headers = new Headers({ 
+    "Content-Type": "application/json",
+     "Accept": "application/json" 
+    });
 
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
@@ -354,7 +357,7 @@ const apiAdapter: AuthAdapter = {
 
   async register(payload) {
     const requestPayload = payload;
-
+    console.log("Sending registration request with payload:", requestPayload);
     const response = await fetch(resolveUrl(REGISTER_ENDPOINT), {
       method: "POST",
       headers: buildHeaders(),

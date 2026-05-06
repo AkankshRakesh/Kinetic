@@ -51,6 +51,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const handleRegister = useCallback(async (payload: RegisterPayload) => {
     setIsBusy(true);
+    console.log("Attempting to register with payload:", payload);
     try {
       const result = await register(payload);
       setSession(result.session);
