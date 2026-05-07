@@ -219,13 +219,22 @@ cat /home/ubuntu/kubeconfig
 
 echo "Generating worker join command..."
 
-kubeadm token create \
-  --ttl 24h \
-  --print-join-command \
-  > /home/ubuntu/join-command.sh
+PUBLIC_IP=$(curl -s ifconfig.me)
 
-echo " --cri-socket=unix:///run/containerd/containerd.sock" \
->> /home/ubuntu/join-command.sh
+JOIN_CMD=$(kubeadm token create \
+  --ttl 24h \
+  --print-join-command)
+
+JOIN_CMD=$(echo $JOIN_CMD | \
+  sed "s/[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+/${PUBLIC_IP}/")
+
+echo "${JOIN_CMD} --cri-socket=unix:///run/containerd/containerd.sock" \
+> /home/ubuntu/join-command.sh
+
+chmod +x /home/ubuntu/join-command.sh
+
+echo "===== FINAL JOIN COMMAND ====="
+cat /home/ubuntu/join-command.sh
 
 chmod +x /home/ubuntu/join-command.sh
 
