@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getSession, login, logout, register } from "@/lib/auth/service";
+import { clearSessionActivityLogs } from "@/lib/activity-logs";
 import type { AuthSession, LoginPayload, RegisterPayload } from "@/lib/auth/types";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";

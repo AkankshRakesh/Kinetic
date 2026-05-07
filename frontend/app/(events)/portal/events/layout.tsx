@@ -3,6 +3,7 @@ import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect } from "react";
 import { useAuth } from "@/app/providers";
 import { Space_Grotesk } from "next/font/google";
+import Link from "next/link";
 
 
 const uiFont = Space_Grotesk({
@@ -124,10 +125,10 @@ function SideRailButton({
           ? `/portal/events/${eventId}${route}`
           : "/portal";
   const active =
-    targetPath === "/portal"
-      ? pathname === "/portal"
-      : pathname === targetPath || pathname.startsWith(`${targetPath}/`);
-    // console.log("SideRailButton", { pathname, targetPath, active });
+  route === "/"
+    ? pathname === "/portal" ||
+      /^\/portal\/events\/[^/]+$/.test(pathname)
+    : pathname.includes(route);
 
   return (
     <button
@@ -217,12 +218,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <div className="flex flex-1 pb-16 lg:pb-0">
         {/* SIDEBAR */}
         <aside className="hidden lg:flex flex-col items-center w-18 shrink-0 border-r border-[#3b3430]/60 bg-[#0d1016]/90 py-5 gap-1 sticky top-15 h-[calc(100vh-60px)]">
-          <div className="mb-4 text-[10px] font-bold tracking-[0.3em] text-[#ffb77b]">KL</div>
+          <Link href="/"><div className="mb-4 text-[10px] font-bold tracking-[0.3em] text-[#ffb77b]">KL</div></Link>
           <SideRailButton icon={<EventsIcon />} label="IMAGES" router={router} pathname={pathname} route="/images" />
           <SideRailButton icon={<GridIcon />} label="GRID" router={router} pathname={pathname} route="/" />
           <SideRailButton icon={<GuestsIcon />} label="GUESTS" router={router} pathname={pathname} route="/guests" />
-          <SideRailButton icon={<AnalyticsIcon />} label="ANALYTICS" router={router} pathname={pathname} route="/analytics" />
-          <SideRailButton icon={<ResearchIcon />} label="RESEARCH" router={router} pathname={pathname} route="/research" />
+          {/* <SideRailButton icon={<AnalyticsIcon />} label="ANALYTICS" router={router} pathname={pathname} route="/analytics" /> */}
+          <SideRailButton icon={<ResearchIcon />} label="SCHEDULE" router={router} pathname={pathname} route="/schedule" />
           <div className="mt-auto">
             <button
               type="button"
@@ -238,10 +239,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-[#3b3430]/80 bg-[#0d1016]/95 px-3 py-2 text-[#6b5c54] lg:hidden">
-        <SideRailButton icon={<EventsIcon />} label="EVENTS" router={router} pathname={pathname} route="/events" />
-        <SideRailButton icon={<GridIcon />} label="GRID" router={router} pathname={pathname} route="/" />
-        <SideRailButton icon={<GuestsIcon />} label="GUESTS" router={router} pathname={pathname} route="/guests" />
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-[#3b3430]/80 bg-[#0d1016]/95 px-3 py-2 text-[#6b5c54] lg:hidden">
+        <SideRailButton icon={<EventsIcon />} label="IMAGES" router={router} pathname={pathname} route="/images" />
+          <SideRailButton icon={<GridIcon />} label="GRID" router={router} pathname={pathname} route="/" />
+          <SideRailButton icon={<GuestsIcon />} label="GUESTS" router={router} pathname={pathname} route="/guests" />
+          {/* <SideRailButton icon={<AnalyticsIcon />} label="ANALYTICS" router={router} pathname={pathname} route="/analytics" /> */}
+          <SideRailButton icon={<ResearchIcon />} label="SCHEDULE" router={router} pathname={pathname} route="/schedule" />
       </nav>
     </div>
   );

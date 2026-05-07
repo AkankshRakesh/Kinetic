@@ -8,6 +8,12 @@ import { useAuth } from "@/app/providers";
 import Image from "next/image";
 import GuestUploadsManager from "./components/GuestUploadsManager";
 import { apiGet } from "@/lib/api/client";
+import { 
+  getSessionActivityLogs, 
+  formatAction, 
+  getActionColor,
+  type SessionActivityLog 
+} from "@/lib/activity-logs";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -43,9 +49,12 @@ function LogEntry({ stamp, label, accent }: { stamp: string; label: string; acce
 export default function EventDashboardPage() {
   const { session } = useAuth();
 
-
   const params = useParams<{ eventId: string }>();
   const [event, setEvent] = useState<EventItem | null>(null);
+  const [recentLogs, setRecentLogs] = useState<SessionActivityLog[]>([]);
+  const [allLogs, setAllLogs] = useState<SessionActivityLog[]>([]);
+  const [totalLogs, setTotalLogs] = useState(0);
+  const [showLogsModal, setShowLogsModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -55,12 +64,12 @@ export default function EventDashboardPage() {
         const data = await apiGet<{ data?: EventItem }>(`/api/events/${params.eventId}`);
         
         if (isMounted && data.data) {
-        setEvent(data.data);
+          setEvent(data.data);
         }
       } catch {
         // Event not found or not accessible
       }
-      }
+    }
 
     void loadEvent();
 
@@ -69,12 +78,28 @@ export default function EventDashboardPage() {
     };
   }, [params.eventId]);
 
+  // Load activity logs from localStorage
+  useEffect(() => {
+    if (!params.eventId) return;
+
+    const logs = getSessionActivityLogs(params.eventId);
+    setTotalLogs(logs.length);
+    setRecentLogs(logs.slice(0, 5));
+  }, [params.eventId]);
+
+  // Load all activity logs when modal opens
+  const handleOpenLogsModal = async () => {
+    setShowLogsModal(true);
+    const logs = getSessionActivityLogs(params.eventId);
+    setAllLogs(logs);
+  };
+
   const acceptedPercent = event?.invitationCount ? Math.round((event.acceptedCount / event.invitationCount) * 100) : 0;
 
   return (
     <main className={`${uiFont.className} min-h-screen bg-[#0b0d0f] text-[#e6e1dd] py-10`}> 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="mx-auto px-6">
           <header className="mb-8">
             <p className="text-[10px] tracking-[0.28em] text-[#a58f83]">EVENT_STATUS: {event?.status ?? "LOADING"}</p>
             <h1 className={`${displayFont.className} text-5xl font-semibold italic text-[#f6d3a6] leading-tight`}>Event Terminal</h1>
@@ -108,11 +133,11 @@ export default function EventDashboardPage() {
                   <div className="w-64">
                     <div className="rounded-md border border-[#2b2520] bg-[#0e1113] p-4 mb-4">
                       <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">INVITES</p>
-                      <p className="mt-1 text-2xl font-medium text-[#e6ddd5]">{event?.invitationCount ?? 0}</p>
+                      <p className="mt-1 text-2xl font-medium text-[#e6ddd5]">{event?.invitationCount ?? 'Loading...'}</p>
                     </div>
                     <div className="rounded-md border border-[#2b2520] bg-[#0e1113] p-4 mb-4">
                       <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">ACCEPTED</p>
-                      <p className="mt-1 text-2xl font-medium text-[#f3bf7a]">{event?.acceptedCount ?? 0}</p>
+                      <p className="mt-1 text-2xl font-medium text-[#f3bf7a]">{event?.acceptedCount ?? 'Loading...'}</p>
                     </div>
                     <div className="rounded-md border border-[#2b2520] bg-[#0e1113] p-4">
                       <p className="text-[10px] tracking-[0.18em] text-[#8f8078]">PENDING</p>
@@ -123,18 +148,29 @@ export default function EventDashboardPage() {
               </div>
 
               <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-lg border border-[#2b2520] bg-[#0f1113] p-4">
-                  <h3 className={`${displayFont.className} text-xl italic text-[#e6dad3] mb-3`}>Protocol Log</h3>
-                  <div className="bg-[#070808] rounded-md p-4 text-xs text-[#c9bdae]" style={{ minHeight: 180 }}>
-                    <ul className="space-y-2">
-                      {["14:22:01  SYSTEM_BOOT: Event terminal services initialized.", "14:22:04  SECURE_TUNNEL: Establishing ap-south-1 connection...", "14:22:06  AUTH: Operator identity verified (Level 4).", "14:22:09  WARNING: No guests currently queued for protocol.", "14:22:15  LOG: Waiting for synthetic catalyst deployment."].map((l, i) => (
-                        <li key={i} className="text-[12px]">
-                          <span className="text-[#9f8e86] mr-3">•</span>
-                          <span className="font-mono text-[#d6c9bd]">{l}</span>
-                        </li>
-                      ))}
-                    </ul>
+                <div className="rounded-lg border border-[#2b2520] bg-[#0f1113] p-4 cursor-pointer hover:border-[#3c332d] transition" onClick={handleOpenLogsModal}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className={`${displayFont.className} text-xl italic text-[#e6dad3]`}>Protocol Log</h3>
+                    <p className="text-[9px] tracking-[0.18em] text-[#8f8078]">{totalLogs} TOTAL</p>
                   </div>
+                  <div className="bg-[#070808] rounded-md p-4 text-xs text-[#c9bdae]" style={{ minHeight: 180 }}>
+                    {recentLogs.length === 0 ? (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-[#9f8e86]">No activity logged yet</p>
+                      </div>
+                    ) : (
+                      <ul className="space-y-2">
+                        {recentLogs.map((log) => (
+                          <li key={log.id} className="text-[12px]">
+                            <span className="text-[#9f8e86] mr-3">•</span>
+                            <span style={{ color: getActionColor(log.action) }} className="font-mono mr-2">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                            <span className="text-[#d6c9bd]">{formatAction(log.action)}: {log.description}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <p className="text-[10px] tracking-[0.1em] text-[#8f8078] mt-3 hover:text-[#a58f83] transition">CLICK TO VIEW ALL LOGS →</p>
                 </div>
 
                 <div className="rounded-lg border border-[#2b2520] bg-[#0f1113] p-6">
@@ -166,6 +202,76 @@ export default function EventDashboardPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Logs Modal */}
+      {showLogsModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+            className="bg-[#0f1113] border border-[#2b2520] rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+          >
+            {/* Modal Header */}
+            <div className="border-b border-[#2b2520] p-6 flex items-center justify-between">
+              <div>
+                <h2 className={`${displayFont.className} text-2xl italic text-[#e6dad3]`}>Activity Protocol</h2>
+                <p className="text-[10px] tracking-[0.18em] text-[#8f8078] mt-1">{totalLogs} TOTAL ENTRIES</p>
+              </div>
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="text-[#9f8e86] hover:text-[#e6dad3] transition text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="overflow-y-auto flex-1 p-6">
+              {allLogs.length === 0 ? (
+                <div className="flex items-center justify-center h-40">
+                  <p className="text-[#9f8e86]">No activity recorded for this event</p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {allLogs.map((log) => (
+                    <li key={log.id} className="border-l-4 pl-4 pb-4" style={{ borderColor: getActionColor(log.action) }}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold" style={{ color: getActionColor(log.action) }}>
+                            {formatAction(log.action)}
+                          </p>
+                          <p className="text-sm text-[#d6c9bd] mt-1">{log.description}</p>
+                          {log.metadata && (
+                            <div className="text-xs text-[#9f8e86] mt-2 space-y-1">
+                              {log.metadata.title && <p>Title: {log.metadata.title}</p>}
+                              {log.metadata.image_count && <p>Images: {log.metadata.image_count}</p>}
+                              {log.metadata.guest_name && <p>Guest: {log.metadata.guest_name}</p>}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-[9px] text-[#9f8e86] whitespace-nowrap ml-4">
+                          {new Date(log.timestamp).toLocaleDateString()} {new Date(log.timestamp).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-[#2b2520] p-4 text-center">
+              <button
+                onClick={() => setShowLogsModal(false)}
+                className="px-6 py-2 bg-[#2b2520] hover:bg-[#3c332d] text-[#d6c9bd] rounded text-sm transition"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </main>
   );
 }

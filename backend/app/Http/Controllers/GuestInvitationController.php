@@ -7,11 +7,13 @@ use App\Mail\GuestPhotoUploadMail;
 use App\Models\Event;
 use App\Models\GuestInvitation;
 use App\Models\GuestUpload;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class GuestInvitationController extends Controller
 {
@@ -112,6 +114,47 @@ class GuestInvitationController extends Controller
                 'rejectedAt' => $invitation->rejected_at?->toISOString(),
             ],
         ], 201);
+    }
+
+    public function destroy(Request $request, Event $event, GuestInvitation $invitation)
+    {
+        abort_unless($event->owner_user_id === $request->user()->id, 404);
+        abort_unless($invitation->event_id === $event->id, 404);
+
+        $guestUploadIds = [];
+        $imagePaths = [];
+
+        if ($invitation->status === 'accepted') {
+            $guestUploads = GuestUpload::query()
+                ->where('event_id', $event->id)
+                ->where('guest_email', $invitation->guest_email)
+                ->get();
+
+            $guestUploadIds = $guestUploads->pluck('id')->all();
+            $imagePaths = $guestUploads
+                ->flatMap(fn (GuestUpload $upload) => collect($upload->image_paths ?? [])->pluck('path'))
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        DB::transaction(function () use ($invitation, $guestUploadIds): void {
+            if ($guestUploadIds !== []) {
+                GuestUpload::query()->whereIn('id', $guestUploadIds)->delete();
+            }
+
+            $invitation->delete();
+        });
+
+        if ($imagePaths !== []) {
+            Storage::disk('supabase')->delete($imagePaths);
+        }
+
+        return response()->json([
+            'message' => $invitation->status === 'accepted'
+                ? 'Invitation and guest uploads deleted.'
+                : 'Invitation deleted.',
+        ]);
     }
 
     public function accept(string $token)

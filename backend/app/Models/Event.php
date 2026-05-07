@@ -41,4 +41,14 @@ class Event extends Model
     {
         return $this->hasMany(GuestUpload::class);
     }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(EventSchedule::class);
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
 }

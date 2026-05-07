@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useParams } from "next/navigation";
-import { apiGet, apiPost } from "@/lib/api/client";
+import { apiDelete, apiGet, apiPost } from "@/lib/api/client";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -15,11 +15,6 @@ const displayFont = Newsreader({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
 });
-
-
-async function readResponseBody(response: Response): Promise<InvitationApiResponse> {
-  return (await response.json().catch(() => ({}))) as InvitationApiResponse;
-}
 
 function SendIcon() {
   return (
@@ -218,6 +213,7 @@ export default function GuestsPage() {
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [messageGuest, setMessageGuest] = useState<Guest | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -322,6 +318,56 @@ export default function GuestsPage() {
   function handleRemoveAdditionalName(nameToRemove: string) {
     setAdditionalNames((prev) => prev.filter((existingName) => existingName !== nameToRemove));
   }
+
+  async function handleDeleteGuest(guest: Guest) {
+    if (!eventId) {
+      setError("Open an event before managing invitations.");
+      return;
+    }
+
+    // const confirmed = window.confirm(
+    //   guest.status === "ACCEPTED"
+    //     ? `Delete ${guest.name}'s invitation and remove their uploaded photos?`
+    //     : `Delete ${guest.name}'s invitation?`
+    // );
+
+    // if (!confirmed) {
+    //   return;
+    // }
+
+    setDeletingGuestId(guest.id);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await apiDelete<InvitationApiResponse>(`/api/events/${eventId}/invite-guest/${guest.id}`);
+      setGuests((prev) => prev.filter((entry) => entry.id !== guest.id));
+
+      if (messageGuest?.id === guest.id) {
+        setMessageGuest(null);
+      }
+
+      setOpenActionsFor(null);
+      setSuccess(response.message || (guest.status === "ACCEPTED" ? "Invitation and guest uploads deleted." : "Invitation deleted."));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete invitation.");
+    } finally {
+      setDeletingGuestId(null);
+    }
+  }
+  const sentCount = guests.length;
+
+  const acceptedCount = guests.filter(
+    (guest) => guest.status === "ACCEPTED"
+  ).length;
+
+  const rejectedCount = guests.filter(
+    (guest) => guest.status === "REJECTED"
+  ).length;
+
+  const scheduledCount = guests.filter(
+    (guest) => guest.status === "PENDING"
+  ).length;
 
   return (
     <main className={`${uiFont.className} min-h-screen bg-[#090b10] text-[#e5e2e3] flex flex-col`}>
@@ -453,10 +499,33 @@ export default function GuestsPage() {
         <div className="px-5 py-6 sm:px-8 lg:py-8">
           <p className="text-[9px] tracking-[0.3em] text-[#8f8078] mb-7">TELEMETRY_STREAM</p>
           <div className="grid grid-cols-2 gap-x-12 gap-y-8">
-            <StatCard label="SENT"      value="1,204" accent="#e6dad3" delay={0.1} />
-            <StatCard label="ACCEPTED"  value="842"   accent="#ffb77b" delay={0.15} />
-            <StatCard label="REJECTED"  value="116"   accent="#ff9e9e" delay={0.2} />
-            <StatCard label="SCHEDULED" value="246"   accent="#67d4ff" delay={0.25} />
+            <StatCard
+              label="SENT"
+              value={sentCount.toString()}
+              accent="#e6dad3"
+              delay={0.1}
+            />
+
+            <StatCard
+              label="ACCEPTED"
+              value={acceptedCount.toString()}
+              accent="#ffb77b"
+              delay={0.15}
+            />
+
+            <StatCard
+              label="REJECTED"
+              value={rejectedCount.toString()}
+              accent="#ff9e9e"
+              delay={0.2}
+            />
+
+            <StatCard
+              label="SCHEDULED"
+              value={scheduledCount.toString()}
+              accent="#67d4ff"
+              delay={0.25}
+            />
           </div>
         </div>
       </motion.div>
@@ -573,6 +642,14 @@ export default function GuestsPage() {
                       className="w-full px-3 py-2 text-left text-[10px] font-semibold tracking-[0.16em] text-[#dac7bd] hover:bg-[#ffb77b]/10 hover:text-[#ffb77b]"
                     >
                       READ MESSAGE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteGuest(guest)}
+                      disabled={deletingGuestId === guest.id}
+                      className="w-full px-3 py-2 text-left text-[10px] font-semibold tracking-[0.16em] text-[#ff9e9e] hover:bg-[#ff7b7b]/10 hover:text-[#ffb2b2] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingGuestId === guest.id ? "DELETING..." : "DELETE REQUEST"}
                     </button>
                   </div>
                 )}

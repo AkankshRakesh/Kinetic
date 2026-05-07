@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GuestInvitationController;
 use App\Http\Controllers\GuestUploadController;
+use App\Http\Controllers\EventScheduleController;
+use App\Http\Controllers\ActivityLogController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -25,9 +27,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/events/{event}/invite-guest', [GuestInvitationController::class, 'index']);
     Route::post('/events/{event}/invite-guest', [GuestInvitationController::class, 'send']);
+    Route::delete('/events/{event}/invite-guest/{invitation}', [GuestInvitationController::class, 'destroy']);
 
     Route::post('/events/{event}/share-link', [GuestUploadController::class, 'generateShareLink']);
     Route::get('/events/{event}/uploads', [GuestUploadController::class, 'getEventUploads']);
+
+    Route::get('/events/{event}/schedule', [EventScheduleController::class, 'index']);
+    Route::post('/events/{event}/schedule', [EventScheduleController::class, 'store']);
+    Route::get('/events/{event}/schedule/{schedule}', [EventScheduleController::class, 'show']);
+    Route::patch('/events/{event}/schedule/{schedule}', [EventScheduleController::class, 'update']);
+    Route::delete('/events/{event}/schedule/{schedule}', [EventScheduleController::class, 'destroy']);
+
+    Route::get('/events/{event}/activity-logs', [ActivityLogController::class, 'index']);
 });
 
 // public

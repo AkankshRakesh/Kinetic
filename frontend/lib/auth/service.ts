@@ -6,6 +6,7 @@ import type {
   LoginPayload,
   RegisterPayload,
 } from "./types";
+import { clearSessionActivityLogs } from "@/lib/activity-logs";
 
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "mock";
 const AUTH_BACKEND = process.env.NEXT_PUBLIC_AUTH_BACKEND ?? "laravel-token";
@@ -97,10 +98,10 @@ function readCookie(name: string): string | null {
 }
 
 function buildHeaders(accessToken?: string): Headers {
-  const headers = new Headers({ 
+  const headers = new Headers({
     "Content-Type": "application/json",
-     "Accept": "application/json" 
-    });
+    "Accept": "application/json"
+  });
 
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
@@ -304,6 +305,7 @@ const mockAdapter: AuthAdapter = {
   },
 
   async logout() {
+    clearSessionActivityLogs();
     removeValue(SESSION_STORAGE_KEY);
   },
 };
@@ -383,6 +385,7 @@ const apiAdapter: AuthAdapter = {
       headers,
     }).catch(() => null);
 
+    clearSessionActivityLogs();
     removeValue(SESSION_STORAGE_KEY);
   },
 };

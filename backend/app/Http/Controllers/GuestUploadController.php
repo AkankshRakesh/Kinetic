@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\GuestPhotoUploadMail;
 use App\Models\Event;
 use App\Models\GuestUpload;
+use App\Models\ActivityLog;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -152,6 +153,23 @@ class GuestUploadController extends Controller
             'image_paths' => array_merge($currentImages, $uploadedPaths),
             'upload_count' => $guestUpload->upload_count + count($images),
         ]);
+
+        // Log the activity
+        $event = Event::find($guestUpload->event_id);
+        if ($event) {
+            ActivityLog::logActivity(
+                $event->id,
+                0, // Guest upload (no authenticated user)
+                'images_uploaded',
+                "{$guestUpload->guest_name} uploaded " . count($images) . " image(s)",
+                [
+                    'guest_name' => $guestUpload->guest_name,
+                    'guest_email' => $guestUpload->guest_email,
+                    'image_count' => count($images),
+                    'upload_id' => $guestUpload->id,
+                ]
+            );
+        }
 
         return response()->json([
             'message' => 'Images uploaded successfully.',
