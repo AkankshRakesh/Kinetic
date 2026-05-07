@@ -196,6 +196,12 @@ stages {
             throw "kubeconfig never generated"
           }
 
+          Write-Host "===== REMOTE KUBECONFIG ====="
+
+          ssh -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            ubuntu@${EC2_IP} `
+            "cat /home/ubuntu/kubeconfig"
           Write-Host "Fetching kubeconfig..."
 
           scp -o StrictHostKeyChecking=no `
@@ -206,6 +212,9 @@ stages {
           if ($LASTEXITCODE -ne 0) {
             throw "Failed copying kubeconfig"
           }
+
+          Write-Host "===== LOCAL KUBECONFIG ====="
+          Get-Content kubeconfig
 
           cd ../..
 
