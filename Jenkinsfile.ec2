@@ -106,23 +106,38 @@ stages {
 
           echo Waiting for kubeconfig generation...
 
+          set FOUND=0
+
           for /l %%i in (1,1,60) do (
+
             ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% ^
-            "test -f /home/ubuntu/kubeconfig && echo exists" && goto :copykube
+            "if [ -f /home/ubuntu/kubeconfig ]; then echo exists; fi" > check.txt
+
+            findstr "exists" check.txt >nul
+
+            if not errorlevel 1 (
+              set FOUND=1
+              goto :copykube
+            )
 
             echo kubeconfig not ready yet...
-            timeout /t 10
+
+            powershell -Command "Start-Sleep -Seconds 10"
           )
 
-          echo ERROR: kubeconfig was never generated
-          exit /b 1
-
           :copykube
+
+          if "%FOUND%"=="0" (
+            echo ERROR: kubeconfig was never generated
+            exit /b 1
+          )
 
           echo Fetching kubeconfig...
 
           scp -i %SSH_KEY% -o StrictHostKeyChecking=no ^
           ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
+
+          del check.txt
 
           cd ..\\..
 
@@ -131,6 +146,7 @@ stages {
       }
     }
   }
+
 
   
   stage('Wait for K8s Ready') {
