@@ -152,27 +152,24 @@ PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 echo "PUBLIC_IP=${PUBLIC_IP}"
 
 cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+cp /etc/kubernetes/admin.conf /home/ubuntu/kubeconfig
 
-cat > /home/ubuntu/kubeconfig <<EOF
-apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: $(grep certificate-authority-data /etc/kubernetes/admin.conf | awk '{print $2}')
-    server: https://${PUBLIC_IP}:6443
-  name: kubernetes
-contexts:
-- context:
-    cluster: kubernetes
-    user: kubernetes-admin
-  name: kubernetes-admin@kubernetes
-current-context: kubernetes-admin@kubernetes
-kind: Config
-preferences: {}
-users:
-- name: kubernetes-admin
-  user:
-    client-certificate-data: $(grep client-certificate-data /etc/kubernetes/admin.conf | awk '{print $2}')
-    client-key-data: $(grep client-key-data /etc/kubernetes/admin.conf | awk '{print $2}')
+python3 - <<EOF
+from pathlib import Path
+
+path = Path("/home/ubuntu/kubeconfig")
+
+content = path.read_text()
+
+lines = []
+
+for line in content.splitlines():
+    if "server:" in line:
+        lines.append(f"    server: https://${PUBLIC_IP}:6443")
+    else:
+        lines.append(line)
+
+path.write_text("\\n".join(lines) + "\\n")
 EOF
 
 chown -R ubuntu:ubuntu /home/ubuntu/.kube
