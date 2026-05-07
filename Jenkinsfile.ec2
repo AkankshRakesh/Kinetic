@@ -125,7 +125,7 @@ stages {
     }
   }
 
-  sstage('Fetch Kubeconfig') {
+  stage('Fetch Kubeconfig') {
     steps {
       withCredentials([
         sshUserPrivateKey(
