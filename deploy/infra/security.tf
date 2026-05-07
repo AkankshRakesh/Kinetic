@@ -1,5 +1,5 @@
 resource "aws_security_group" "k8s" {
-  name = "k8s-sg"
+  name_prefix = "k8s-sg-"
 
   ingress {
     from_port   = 22
