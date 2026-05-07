@@ -59,6 +59,27 @@ stages {
   //   }
   // }
 
+  stage('Clean Terraform State') {
+    steps {
+      withCredentials([
+        usernamePassword(
+          credentialsId: 'aws-creds',
+          usernameVariable: 'AWS_ACCESS_KEY_ID',
+          passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+        )
+      ]) {
+        bat '''
+          cd deploy\\infra
+
+          terraform init
+
+          terraform state rm aws_instance.control_plane || exit /b 0
+          terraform state rm aws_instance.monitoring_worker || exit /b 0
+        '''
+      }
+    }
+  }
+
   stage('Provision Infra (Terraform)') {
     steps {
       withCredentials([
