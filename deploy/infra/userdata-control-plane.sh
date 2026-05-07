@@ -170,30 +170,30 @@ echo "kubeconfig generated successfully"
 # Remove master taint
 #######################################
 
-kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+# kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
 
 #######################################
 # Install Calico
 #######################################
 
-echo "Installing Calico..."
+# echo "Installing Calico..."
 
-kubectl apply -f \
-https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
+# kubectl apply -f \
+# https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
 
-#######################################
-# Wait for node ready
-#######################################
+# #######################################
+# # Wait for node ready
+# #######################################
 
-echo "Waiting for node readiness..."
+# echo "Waiting for node readiness..."
 
-timeout 600 bash -c '
-until kubectl get nodes 2>/dev/null | grep -q " Ready"; do
-  sleep 5
-done
-'
+# timeout 600 bash -c '
+# until kubectl get nodes 2>/dev/null | grep -q " Ready"; do
+#   sleep 5
+# done
+# '
 
-kubectl get nodes -o wide
+# kubectl get nodes -o wide
 
 # #######################################
 # # Install ingress nginx
@@ -234,10 +234,10 @@ chmod +x /home/ubuntu/join-command.sh
 # Label current node
 #######################################
 
-CONTROL_NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+# CONTROL_NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
 
-kubectl label node ${CONTROL_NODE} \
-node-role.kubernetes.io/control-plane=control-plane --overwrite
+# kubectl label node ${CONTROL_NODE} \
+# node-role.kubernetes.io/control-plane=control-plane --overwrite
 
 #######################################
 # Install lightweight monitoring

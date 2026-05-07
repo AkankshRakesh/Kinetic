@@ -77,44 +77,39 @@ stages {
           keyFileVariable: 'SSH_KEY'
         )
       ]) {
-        bat '''
-          cd deploy\\infra
+        powershell '''
+          cd deploy/infra
 
-          for /f "tokens=*" %%i in ('terraform output -raw control_plane_ip') do (
-            set EC2_IP=%%i
-          )
+          $EC2_IP = terraform output -raw control_plane_ip
 
-          echo Waiting for SSH on %EC2_IP%...
+          Write-Host "Waiting for SSH on $EC2_IP..."
 
-          icacls "%SSH_KEY%" /inheritance:r
-          icacls "%SSH_KEY%" /grant:r "%USERNAME%:R"
-          icacls "%SSH_KEY%" /grant:r "SYSTEM:R"
+          icacls $env:SSH_KEY /inheritance:r | Out-Null
+          icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
+          icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
 
-          set RETRY_COUNT=0
+          $success = $false
 
-          :sshloop
+          for ($i = 1; $i -le 30; $i++) {
 
-          ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% "echo ready"
+            ssh -o StrictHostKeyChecking=no `
+              -i $env:SSH_KEY `
+              ubuntu@${EC2_IP} `
+              "echo ready"
 
-          if %ERRORLEVEL% EQU 0 (
-            echo SSH IS READY
-            goto :success
-          )
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "SSH READY"
+              $success = $true
+              break
+            }
 
-          echo SSH not ready yet...
+            Write-Host "SSH not ready yet..."
+            Start-Sleep -Seconds 10
+          }
 
-          set /a RETRY_COUNT+=1
-
-          if %RETRY_COUNT% GEQ 20 (
-            echo ERROR: SSH never became available
-            exit /b 1
-          )
-
-          powershell -Command "Start-Sleep -Seconds 5"
-
-          goto :sshloop
-
-          :success
+          if (-not $success) {
+            throw "SSH never became available"
+          }
         '''
       }
     }
@@ -168,7 +163,7 @@ stages {
             exit /b 1
           )
 
-          timeout /t 10 >nul
+          powershell -Command "Start-Sleep -Seconds 10"
 
           goto :kubeloop
 
@@ -186,6 +181,25 @@ stages {
           powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
 
           echo kubeconfig fetched successfully
+        '''
+      }
+    }
+  }
+
+  stage('Install Calico') {
+    steps {
+      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
+        powershell '''
+          Write-Host "Installing Calico..."
+
+          kubectl apply -f `
+  https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
+
+          kubectl wait `
+            --for=condition=Ready pods `
+            --all `
+            -n calico-system `
+            --timeout=600s
         '''
       }
     }
@@ -290,6 +304,38 @@ stages {
     }
   }
 
+  stage('Wait for Worker Ready') {
+    steps {
+      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
+        powershell '''
+          $ready = $false
+
+          for ($i = 1; $i -le 40; $i++) {
+
+            $nodes = kubectl get nodes --no-headers
+
+            Write-Host $nodes
+
+            $readyNodes = ($nodes | Select-String " Ready ").Count
+
+            if ($readyNodes -ge 2) {
+              Write-Host "Both nodes ready"
+              $ready = $true
+              break
+            }
+
+            Write-Host "Waiting for worker readiness..."
+            Start-Sleep -Seconds 15
+          }
+
+          if (-not $ready) {
+            throw "Worker node never became ready"
+          }
+        '''
+      }
+    }
+  }
+
   stage('Label Monitoring Node') {
     steps {
       withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
@@ -321,18 +367,63 @@ stages {
     }
   }
 
+  stage('Install Monitoring') {
+    steps {
+      withCredentials([
+        sshUserPrivateKey(
+          credentialsId: 'ec2-key',
+          keyFileVariable: 'SSH_KEY'
+        )
+      ]) {
+        powershell '''
+          cd deploy/infra
+
+          $CONTROL_IP = terraform output -raw control_plane_ip
+
+          icacls $env:SSH_KEY /inheritance:r | Out-Null
+          icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
+          icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
+
+          ssh -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            ubuntu@${CONTROL_IP} `
+            "nohup /home/ubuntu/install-monitoring.sh > /var/log/monitoring-install.log 2>&1 &"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to start monitoring install"
+          }
+        '''
+      }
+    }
+  }
+
 
   
   stage('Wait for K8s Ready') {
     steps {
-      bat '''
-        for /l %%i in (1,1,20) do (
-          kubectl --kubeconfig=deploy\\infra\\kubeconfig get nodes && exit /b 0
-          echo Waiting for cluster...
-          timeout /t 15
-        )
-        exit /b 1
-      '''
+      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
+        powershell '''
+          $ready = $false
+
+          for ($i = 1; $i -le 30; $i++) {
+
+            kubectl get nodes
+
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Cluster ready"
+              $ready = $true
+              break
+            }
+
+            Write-Host "Waiting for cluster..."
+            Start-Sleep -Seconds 15
+          }
+
+          if (-not $ready) {
+            throw "Cluster never became ready"
+          }
+        '''
+      }
     }
   }
 
