@@ -142,7 +142,7 @@ stages {
           icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
           icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
 
-          Write-Host "Waiting for Kubernetes API..."
+          Write-Host "Waiting for kubeconfig generation..."
 
           $ready = $false
 
@@ -151,19 +151,15 @@ stages {
             ssh -o StrictHostKeyChecking=no `
               -i $env:SSH_KEY `
               ubuntu@${EC2_IP} `
-              "kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes" `
-              *> check.txt
+              "test -f /home/ubuntu/kubeconfig && echo READY"
 
-            $content = Get-Content check.txt -Raw
-
-            Write-Host $content
-
-            if ($content -match "Ready") {
-              Write-Host "Kubernetes API ready"
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "kubeconfig generated"
               $ready = $true
               break
             }
 
+            Write-Host "kubeconfig not ready yet..."
             Start-Sleep -Seconds 15
           }
 
@@ -176,7 +172,7 @@ stages {
               ubuntu@${EC2_IP} `
               "sudo tail -100 /var/log/user-data.log"
 
-            throw "Kubernetes never became ready"
+            throw "kubeconfig never generated"
           }
 
           Write-Host "Fetching kubeconfig..."
