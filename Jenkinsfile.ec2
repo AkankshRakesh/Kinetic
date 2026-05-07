@@ -67,7 +67,9 @@ stages {
         bat '''
           cd deploy\\infra
 
-          for /f "tokens=*" %%i in ('terraform output -raw public_ip') do set EC2_IP=%%i
+          for /f "tokens=*" %%i in ('terraform output -raw public_ip') do (
+            set EC2_IP=%%i
+          )
 
           echo Waiting for SSH on %EC2_IP%...
 
@@ -75,13 +77,31 @@ stages {
           icacls "%SSH_KEY%" /grant:r "%USERNAME%:R"
           icacls "%SSH_KEY%" /grant:r "SYSTEM:R"
 
-          for /l %%i in (1,1,20) do (
-            ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% "echo ready" && exit /b 0
-            echo SSH not ready yet...
-            powershell -Command "Start-Sleep -Seconds 5"
+          set RETRY_COUNT=0
+
+          :sshloop
+
+          ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% "echo ready"
+
+          if %ERRORLEVEL% EQU 0 (
+            echo SSH IS READY
+            goto :success
           )
 
-          exit /b 1
+          echo SSH not ready yet...
+
+          set /a RETRY_COUNT+=1
+
+          if %RETRY_COUNT% GEQ 20 (
+            echo ERROR: SSH never became available
+            exit /b 1
+          )
+
+          timeout /t 5 >nul
+
+          goto :sshloop
+
+          :success
         '''
       }
     }
@@ -98,7 +118,9 @@ stages {
         bat '''
           cd deploy\\infra
 
-          for /f "tokens=*" %%i in ('terraform output -raw public_ip') do set EC2_IP=%%i
+          for /f "tokens=*" %%i in ('terraform output -raw public_ip') do (
+            set EC2_IP=%%i
+          )
 
           icacls "%SSH_KEY%" /inheritance:r
           icacls "%SSH_KEY%" /grant:r "%USERNAME%:R"
@@ -106,42 +128,116 @@ stages {
 
           echo Waiting for kubeconfig generation...
 
-          set FOUND=0
+          set RETRY_COUNT=0
 
-          for /l %%i in (1,1,60) do (
+          :kubeloop
 
-            ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% ^
-            "if [ -f /home/ubuntu/kubeconfig ]; then echo exists; fi" > check.txt
+          ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% "test -f /home/ubuntu/kubeconfig && echo exists" > check.txt
 
-            findstr "exists" check.txt >nul
+          findstr "exists" check.txt >nul
 
-            if not errorlevel 1 (
-              set FOUND=1
-              goto :copykube
-            )
-
-            echo kubeconfig not ready yet...
-
-            powershell -Command "Start-Sleep -Seconds 10"
+          if %ERRORLEVEL% EQU 0 (
+            echo kubeconfig found
+            goto :copykube
           )
 
-          :copykube
+          echo kubeconfig not ready yet...
 
-          if "%FOUND%"=="0" (
+          set /a RETRY_COUNT+=1
+
+          if %RETRY_COUNT% GEQ 60 (
             echo ERROR: kubeconfig was never generated
+
+            echo ===== USER DATA LOG =====
+
+            ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% "sudo tail -100 /var/log/user-data.log"
+
             exit /b 1
           )
+
+          timeout /t 10 >nul
+
+          goto :kubeloop
+
+          :copykube
 
           echo Fetching kubeconfig...
 
           scp -i %SSH_KEY% -o StrictHostKeyChecking=no ^
-          ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
+            ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
 
           del check.txt
 
           cd ..\\..
 
           powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
+
+          echo kubeconfig fetched successfully
+        '''
+      }
+    }
+  }
+
+  stage('Join Monitoring Worker') {
+    steps {
+      withCredentials([
+        sshUserPrivateKey(
+          credentialsId: 'ec2-key',
+          keyFileVariable: 'SSH_KEY'
+        )
+      ]) {
+        powershell '''
+          cd deploy/infra
+
+          $CONTROL_IP = terraform output -raw control_plane_ip
+          $WORKER_IP = terraform output -raw monitoring_worker_ip
+
+          Write-Host "Fetching join command..."
+
+          ssh -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            ubuntu@$CONTROL_IP `
+            "cat /home/ubuntu/join-command.sh" `
+            > join-command.sh
+
+          Write-Host "Installing worker dependencies..."
+
+          ssh -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            ubuntu@$WORKER_IP `
+            "sudo apt update && sudo apt install -y containerd"
+
+          Write-Host "Copying join command..."
+
+          scp -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            join-command.sh `
+            ubuntu@$WORKER_IP:/home/ubuntu/
+
+          Write-Host "Joining worker to cluster..."
+
+          ssh -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            ubuntu@$WORKER_IP `
+            "chmod +x /home/ubuntu/join-command.sh && sudo bash /home/ubuntu/join-command.sh"
+
+          Write-Host "Worker joined successfully"
+
+          kubectl --kubeconfig=kubeconfig get nodes
+        '''
+      }
+    }
+  }
+
+  stage('Label Monitoring Node') {
+    steps {
+      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
+        powershell '''
+          $monitorNode = kubectl get nodes -o name | Select-Object -Last 1
+
+          kubectl label $monitorNode monitoring=true --overwrite
+
+          kubectl taint $monitorNode monitoring=true:NoSchedule --overwrite
         '''
       }
     }

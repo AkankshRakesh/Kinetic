@@ -215,10 +215,28 @@ kubectl wait \
   --timeout=600s || true
 
 #######################################
-# OPTIONAL Monitoring
+# Generate worker join command
 #######################################
-# Run monitoring install asynchronously
-# so Jenkins deployment isn't blocked
+
+echo "Generating worker join command..."
+
+kubeadm token create --print-join-command \
+> /home/ubuntu/join-command.sh
+
+chmod +x /home/ubuntu/join-command.sh
+
+#######################################
+# Label current node
+#######################################
+
+CONTROL_NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+
+kubectl label node ${CONTROL_NODE} \
+node-role.kubernetes.io/control-plane=control-plane --overwrite
+
+#######################################
+# Install lightweight monitoring
+#######################################
 
 cat <<'EOF' > /home/ubuntu/install-monitoring.sh
 #!/bin/bash
@@ -237,10 +255,26 @@ kubectl create namespace monitoring || true
 helm upgrade --install monitoring \
 prometheus-community/kube-prometheus-stack \
 --namespace monitoring \
---set grafana.resources.requests.cpu=100m \
---set grafana.resources.requests.memory=256Mi \
---set prometheus.prometheusSpec.resources.requests.memory=512Mi \
+
 --set alertmanager.enabled=false \
+--set defaultRules.create=false \
+
+--set kubeEtcd.enabled=false \
+--set kubeScheduler.enabled=false \
+--set kubeControllerManager.enabled=false \
+
+--set prometheus.prometheusSpec.retention=1d \
+--set prometheus.prometheusSpec.scrapeInterval=60s \
+
+--set prometheus.prometheusSpec.nodeSelector.monitoring=true \
+--set grafana.nodeSelector.monitoring=true \
+
+--set prometheus.prometheusSpec.resources.requests.cpu=100m \
+--set prometheus.prometheusSpec.resources.requests.memory=512Mi \
+
+--set grafana.resources.requests.cpu=50m \
+--set grafana.resources.requests.memory=128Mi \
+
 --wait \
 --timeout 20m || true
 
@@ -255,9 +289,6 @@ kubectl patch svc monitoring-kube-prometheus-prometheus \
 EOF
 
 chmod +x /home/ubuntu/install-monitoring.sh
-
-nohup /home/ubuntu/install-monitoring.sh \
-> /var/log/monitoring-install.log 2>&1 &
 
 #######################################
 # Final status
