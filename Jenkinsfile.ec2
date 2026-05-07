@@ -209,29 +209,17 @@ stages {
             throw "Failed to fetch join command"
           }
 
-          [System.IO.File]::WriteAllText(
-            "join-command.sh",
-            $joinCommand,
-            (New-Object System.Text.UTF8Encoding($false))
-          )
+          $joinCommand = $joinCommand.Trim()
 
-          Write-Host "Copying join command..."
+          Write-Host "Join command fetched:"
+          Write-Host $joinCommand
 
-          scp -o StrictHostKeyChecking=no `
-            -i $env:SSH_KEY `
-            join-command.sh `
-            ubuntu@${WORKER_IP}:/home/ubuntu/
+          Write-Host "Executing join command on worker..."
 
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to copy join command"
-          }
-
-          Write-Host "Joining worker to cluster..."
-
-          ssh -o StrictHostKeyChecking=no `
+          ssh -tt -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
             ubuntu@${WORKER_IP} `
-            "chmod +x /home/ubuntu/join-command.sh && sudo bash /home/ubuntu/join-command.sh"
+            "sudo $joinCommand"
 
           if ($LASTEXITCODE -ne 0) {
             throw "Worker failed joining cluster"
