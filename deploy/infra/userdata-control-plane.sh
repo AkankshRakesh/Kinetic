@@ -165,6 +165,7 @@ chmod 600 /home/ubuntu/kubeconfig
 
 echo "Generated kubeconfig:"
 cat /home/ubuntu/kubeconfig | grep server
+cat /home/ubuntu/kubeconfig
 
 #######################################
 # Remove master taint
