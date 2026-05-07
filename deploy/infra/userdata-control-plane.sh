@@ -154,9 +154,9 @@ PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
 echo "PUBLIC_IP=${PUBLIC_IP}"
 
-kubectl config set-cluster kubernetes \
-  --server=https://${PUBLIC_IP}:6443 \
-  --kubeconfig=/home/ubuntu/kubeconfig
+# Replace localhost/private API endpoint safely
+sed -i "s#server: https://.*:6443#server: https://${PUBLIC_IP}:6443#g" \
+  /home/ubuntu/kubeconfig
 
 chown -R ubuntu:ubuntu /home/ubuntu/.kube
 chown ubuntu:ubuntu /home/ubuntu/kubeconfig
@@ -164,7 +164,7 @@ chown ubuntu:ubuntu /home/ubuntu/kubeconfig
 chmod 600 /home/ubuntu/kubeconfig
 
 echo "Generated kubeconfig:"
-grep server /home/ubuntu/kubeconfig
+cat /home/ubuntu/kubeconfig | grep server
 
 #######################################
 # Remove master taint
