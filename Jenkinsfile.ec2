@@ -178,6 +178,52 @@ stages {
     }
   }
 
+  stage('Wait for Control Plane Stability') {
+    steps {
+      withCredentials([
+        sshUserPrivateKey(
+          credentialsId: 'ec2-key',
+          keyFileVariable: 'SSH_KEY'
+        )
+      ]) {
+        powershell '''
+          cd deploy/infra
+
+          $CONTROL_IP = terraform output -raw control_plane_ip
+
+          Write-Host "Waiting for control plane stabilization..."
+
+          icacls $env:SSH_KEY /inheritance:r | Out-Null
+          icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
+          icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
+
+          $ready = $false
+
+          for ($i = 1; $i -le 30; $i++) {
+
+            ssh -o StrictHostKeyChecking=no `
+              -i $env:SSH_KEY `
+              ubuntu@${CONTROL_IP} `
+              "kubectl get nodes"
+
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Control plane stable"
+              $ready = $true
+              break
+            }
+
+            Write-Host "Control plane not ready yet..."
+            Start-Sleep -Seconds 15
+          }
+
+          if (-not $ready) {
+            throw "Control plane never stabilized"
+          }
+        '''
+      }
+    }
+  }
+
   stage('Join Monitoring Worker') {
     steps {
       withCredentials([
