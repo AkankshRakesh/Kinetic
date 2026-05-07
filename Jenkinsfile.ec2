@@ -291,6 +291,23 @@ stages {
     }
   }
 
+  stage('Install Ingress') {
+    steps {
+      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
+        powershell '''
+          kubectl apply -f `
+  https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/cloud/deploy.yaml
+
+          kubectl wait `
+            --namespace ingress-nginx `
+            --for=condition=Ready pod `
+            --selector=app.kubernetes.io/component=controller `
+            --timeout=600s
+        '''
+      }
+    }
+  }
+
 
   
   stage('Wait for K8s Ready') {

@@ -195,24 +195,24 @@ done
 
 kubectl get nodes -o wide
 
-#######################################
-# Install ingress nginx
-#######################################
+# #######################################
+# # Install ingress nginx
+# #######################################
 
-echo "Installing ingress-nginx..."
+# echo "Installing ingress-nginx..."
 
-kubectl apply -f \
-https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+# kubectl apply -f \
+# https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
 
-#######################################
-# Wait for ingress
-#######################################
+# #######################################
+# # Wait for ingress
+# #######################################
 
-kubectl wait \
-  --namespace ingress-nginx \
-  --for=condition=Ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=600s || true
+# kubectl wait \
+#   --namespace ingress-nginx \
+#   --for=condition=Ready pod \
+#   --selector=app.kubernetes.io/component=controller \
+#   --timeout=600s || true
 
 #######################################
 # Generate worker join command
