@@ -192,6 +192,12 @@ stages {
           $CONTROL_IP = terraform output -raw control_plane_ip
           $WORKER_IP = terraform output -raw monitoring_worker_ip
 
+          Write-Host "Fixing SSH key permissions..."
+
+          icacls $env:SSH_KEY /inheritance:r | Out-Null
+          icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
+          icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
+
           Write-Host "Fetching join command..."
 
           ssh -o StrictHostKeyChecking=no `
@@ -200,12 +206,9 @@ stages {
             "cat /home/ubuntu/join-command.sh" `
             > join-command.sh
 
-          Write-Host "Installing worker dependencies..."
-
-          ssh -o StrictHostKeyChecking=no `
-            -i $env:SSH_KEY `
-            ubuntu@${WORKER_IP} `
-            "sudo apt update && sudo apt install -y containerd"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to fetch join command"
+          }
 
           Write-Host "Copying join command..."
 
@@ -214,6 +217,10 @@ stages {
             join-command.sh `
             ubuntu@${WORKER_IP}:/home/ubuntu/
 
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to copy join command"
+          }
+
           Write-Host "Joining worker to cluster..."
 
           ssh -o StrictHostKeyChecking=no `
@@ -221,9 +228,11 @@ stages {
             ubuntu@${WORKER_IP} `
             "chmod +x /home/ubuntu/join-command.sh && sudo bash /home/ubuntu/join-command.sh"
 
-          Write-Host "Worker joined successfully"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Worker failed joining cluster"
+          }
 
-          kubectl --kubeconfig=kubeconfig get nodes
+          Write-Host "Worker joined successfully"
         '''
       }
     }

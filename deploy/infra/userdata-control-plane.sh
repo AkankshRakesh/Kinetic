@@ -220,8 +220,13 @@ kubectl wait \
 
 echo "Generating worker join command..."
 
-kubeadm token create --print-join-command \
-> /home/ubuntu/join-command.sh
+kubeadm token create \
+  --ttl 24h \
+  --print-join-command \
+  > /home/ubuntu/join-command.sh
+
+echo " --cri-socket=unix:///run/containerd/containerd.sock" \
+>> /home/ubuntu/join-command.sh
 
 chmod +x /home/ubuntu/join-command.sh
 
@@ -274,6 +279,16 @@ prometheus-community/kube-prometheus-stack \
 
 --set grafana.resources.requests.cpu=50m \
 --set grafana.resources.requests.memory=128Mi \
+
+--set prometheus.prometheusSpec.tolerations[0].key=monitoring \
+--set prometheus.prometheusSpec.tolerations[0].operator=Equal \
+--set prometheus.prometheusSpec.tolerations[0].value=true \
+--set prometheus.prometheusSpec.tolerations[0].effect=NoSchedule \
+
+--set grafana.tolerations[0].key=monitoring \
+--set grafana.tolerations[0].operator=Equal \
+--set grafana.tolerations[0].value=true \
+--set grafana.tolerations[0].effect=NoSchedule \
 
 --wait \
 --timeout 20m || true
