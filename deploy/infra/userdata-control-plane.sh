@@ -145,12 +145,14 @@ kubeadm init \
 # KUBECONFIG
 #######################################
 
-export KUBECONFIG=/etc/kubernetes/admin.conf
-
 mkdir -p /home/ubuntu/.kube
 
 cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
 cp /etc/kubernetes/admin.conf /home/ubuntu/kubeconfig
+
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+
+echo "PUBLIC_IP=${PUBLIC_IP}"
 
 kubectl config set-cluster kubernetes \
   --server=https://${PUBLIC_IP}:6443 \
@@ -161,7 +163,7 @@ chown ubuntu:ubuntu /home/ubuntu/kubeconfig
 
 chmod 600 /home/ubuntu/kubeconfig
 
-echo "Current kubeconfig server:"
+echo "Generated kubeconfig:"
 grep server /home/ubuntu/kubeconfig
 
 #######################################
