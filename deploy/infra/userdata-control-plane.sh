@@ -152,19 +152,17 @@ mkdir -p /home/ubuntu/.kube
 cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
 cp /etc/kubernetes/admin.conf /home/ubuntu/kubeconfig
 
-#######################################
-# Replace localhost/private IP
-#######################################
-
-sed -i "s|server: https://.*:6443|server: https://${PUBLIC_IP}:6443|g" \
-  /home/ubuntu/kubeconfig
+kubectl config set-cluster kubernetes \
+  --server=https://${PUBLIC_IP}:6443 \
+  --kubeconfig=/home/ubuntu/kubeconfig
 
 chown -R ubuntu:ubuntu /home/ubuntu/.kube
 chown ubuntu:ubuntu /home/ubuntu/kubeconfig
 
 chmod 600 /home/ubuntu/kubeconfig
 
-echo "kubeconfig generated successfully"
+echo "Current kubeconfig server:"
+grep server /home/ubuntu/kubeconfig
 
 #######################################
 # Remove master taint

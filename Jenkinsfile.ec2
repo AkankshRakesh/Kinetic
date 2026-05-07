@@ -36,28 +36,28 @@ stages {
     }
   }
 
-  stage('Recreate Monitoring Worker') {
-    steps {
-      withCredentials([
-        usernamePassword(
-          credentialsId: 'aws-creds',
-          usernameVariable: 'AWS_ACCESS_KEY_ID',
-          passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-        )
-      ]) {
-        bat '''
-          cd deploy\\infra
+  // stage('Recreate Monitoring Worker') {
+  //   steps {
+  //     withCredentials([
+  //       usernamePassword(
+  //         credentialsId: 'aws-creds',
+  //         usernameVariable: 'AWS_ACCESS_KEY_ID',
+  //         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+  //       )
+  //     ]) {
+  //       bat '''
+  //         cd deploy\\infra
 
-          terraform init
+  //         terraform init
 
-          terraform destroy ^
-            -target aws_instance.monitoring_worker ^
-            -auto-approve ^
-            -var "key_name=kin"
-        '''
-      }
-    }
-  }
+  //         terraform destroy ^
+  //           -target aws_instance.monitoring_worker ^
+  //           -auto-approve ^
+  //           -var "key_name=kin"
+  //       '''
+  //     }
+  //   }
+  // }
 
   stage('Provision Infra (Terraform)') {
     steps {
@@ -325,64 +325,79 @@ stages {
 
   stage('Wait for Worker Ready') {
     steps {
-      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
-        powershell '''
-          $ready = $false
+      powershell '''
+        $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
 
-          for ($i = 1; $i -le 40; $i++) {
+        $ready = $false
 
-            $nodes = kubectl get nodes --no-headers
+        for ($i = 1; $i -le 40; $i++) {
 
-            Write-Host $nodes
+          $nodes = kubectl --kubeconfig=$KUBECONFIG_PATH `
+            get nodes --no-headers
 
-            $readyNodes = ($nodes | Select-String " Ready ").Count
+          Write-Host $nodes
 
-            if ($readyNodes -ge 2) {
-              Write-Host "Both nodes ready"
-              $ready = $true
-              break
-            }
+          $readyNodes = ($nodes | Select-String " Ready ").Count
 
-            Write-Host "Waiting for worker readiness..."
-            Start-Sleep -Seconds 15
+          if ($readyNodes -ge 2) {
+            Write-Host "Both nodes ready"
+            $ready = $true
+            break
           }
 
-          if (-not $ready) {
-            throw "Worker node never became ready"
-          }
-        '''
-      }
+          Write-Host "Waiting for worker readiness..."
+          Start-Sleep -Seconds 15
+        }
+
+        if (-not $ready) {
+          throw "Worker node never became ready"
+        }
+      '''
     }
   }
 
   stage('Label Monitoring Node') {
     steps {
-      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
-        powershell '''
-          $monitorNode = kubectl get nodes -o name | Select-Object -Last 1
+      powershell '''
+        $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
 
-          kubectl label $monitorNode monitoring=true --overwrite
+        $monitorNode = kubectl --kubeconfig=$KUBECONFIG_PATH `
+          get nodes -o name | Select-Object -Last 1
 
-          kubectl taint $monitorNode monitoring=true:NoSchedule --overwrite
-        '''
-      }
+        kubectl --kubeconfig=$KUBECONFIG_PATH `
+          label $monitorNode monitoring=true --overwrite
+
+        kubectl --kubeconfig=$KUBECONFIG_PATH `
+          taint $monitorNode monitoring=true:NoSchedule --overwrite
+      '''
     }
   }
 
   stage('Install Ingress') {
     steps {
-      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
-        powershell '''
-          kubectl apply -f `
+      powershell '''
+        $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
+
+        kubectl --kubeconfig=$KUBECONFIG_PATH apply -f `
   https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/cloud/deploy.yaml
 
-          kubectl wait `
-            --namespace ingress-nginx `
-            --for=condition=Ready pod `
-            --selector=app.kubernetes.io/component=controller `
-            --timeout=600s
-        '''
-      }
+        if ($LASTEXITCODE -ne 0) {
+          throw "Failed installing ingress"
+        }
+
+        kubectl --kubeconfig=$KUBECONFIG_PATH wait `
+          --namespace ingress-nginx `
+          --for=condition=Ready pod `
+          --selector=app.kubernetes.io/component=controller `
+          --timeout=600s
+
+        if ($LASTEXITCODE -ne 0) {
+          throw "Ingress never became ready"
+        }
+
+        kubectl --kubeconfig=$KUBECONFIG_PATH `
+          get svc -n ingress-nginx
+      '''
     }
   }
 
@@ -420,29 +435,29 @@ stages {
   
   stage('Wait for K8s Ready') {
     steps {
-      withEnv(["KUBECONFIG=${WORKSPACE}\\deploy\\infra\\kubeconfig"]) {
-        powershell '''
-          $ready = $false
+      powershell '''
+        $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
 
-          for ($i = 1; $i -le 30; $i++) {
+        $ready = $false
 
-            kubectl get nodes
+        for ($i = 1; $i -le 30; $i++) {
 
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "Cluster ready"
-              $ready = $true
-              break
-            }
+          kubectl --kubeconfig=$KUBECONFIG_PATH get nodes
 
-            Write-Host "Waiting for cluster..."
-            Start-Sleep -Seconds 15
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Cluster ready"
+            $ready = $true
+            break
           }
 
-          if (-not $ready) {
-            throw "Cluster never became ready"
-          }
-        '''
-      }
+          Write-Host "Waiting for cluster..."
+          Start-Sleep -Seconds 15
+        }
+
+        if (-not $ready) {
+          throw "Cluster never became ready"
+        }
+      '''
     }
   }
 

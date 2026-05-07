@@ -16,7 +16,7 @@ resource "aws_instance" "control_plane" {
   user_data = file("userdata-control-plane.sh")
 
   lifecycle {
-    ignore_changes = [user_data]
+    ignore_changes = [ami]
   }
 
   tags = {
