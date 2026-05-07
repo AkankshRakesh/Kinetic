@@ -149,33 +149,13 @@ mkdir -p /home/ubuntu/.kube
 
 PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
-export PUBLIC_IP
-
 echo "PUBLIC_IP=${PUBLIC_IP}"
 
 cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
 cp /etc/kubernetes/admin.conf /home/ubuntu/kubeconfig
 
-python3 - <<EOF
-from pathlib import Path
-import os
-
-public_ip = os.environ["PUBLIC_IP"]
-
-path = Path("/home/ubuntu/kubeconfig")
-
-content = path.read_text()
-
-lines = []
-
-for line in content.splitlines():
-    if "server:" in line:
-        lines.append(f"    server: https://{public_ip}:6443")
-    else:
-        lines.append(line)
-
-path.write_text("\\n".join(lines) + "\\n")
-EOF
+sed -i "/server:/c\    server: https://${PUBLIC_IP}:6443" \
+/home/ubuntu/kubeconfig
 
 chown -R ubuntu:ubuntu /home/ubuntu/.kube
 chown ubuntu:ubuntu /home/ubuntu/kubeconfig
