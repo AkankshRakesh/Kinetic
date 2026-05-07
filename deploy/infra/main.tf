@@ -11,6 +11,10 @@ resource "aws_instance" "k8s" {
 
   user_data = file("userdata.sh")
 
+  lifecycle {
+    ignore_changes = [user_data]
+  }
+
   tags = {
     Name = "kinetic-k8s"
   }
