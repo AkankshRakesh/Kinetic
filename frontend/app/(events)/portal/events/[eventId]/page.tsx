@@ -5,10 +5,10 @@ import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/app/providers";
-import Image from "next/image";
-import GuestUploadsManager from "./components/GuestUploadsManager";
 import { apiGet } from "@/lib/api/client";
+import { decodeEventId } from "@/lib/event-route-id";
 import { 
+  ACTIVITY_LOGS_UPDATED_EVENT,
   getSessionActivityLogs, 
   formatAction, 
   getActionColor,
@@ -37,23 +37,13 @@ type EventItem = {
 };
 
 
-function LogEntry({ stamp, label, accent }: { stamp: string; label: string; accent: string }) {
-  return (
-    <li className="border-l-2 pl-3" style={{ borderColor: accent }}>
-      <p className="text-[9px] tracking-[0.18em] text-[#9f8e86]">{stamp}</p>
-      <p className="mt-1 text-xs tracking-[0.05em] text-[#dac7bd]">{label}</p>
-    </li>
-  );
-}
-
 export default function EventDashboardPage() {
   const { session } = useAuth();
 
   const params = useParams<{ eventId: string }>();
+  const backendEventId = decodeEventId(params.eventId);
   const [event, setEvent] = useState<EventItem | null>(null);
-  const [recentLogs, setRecentLogs] = useState<SessionActivityLog[]>([]);
-  const [allLogs, setAllLogs] = useState<SessionActivityLog[]>([]);
-  const [totalLogs, setTotalLogs] = useState(0);
+  const [sessionLogs, setSessionLogs] = useState<SessionActivityLog[]>([]);
   const [showLogsModal, setShowLogsModal] = useState(false);
 
   useEffect(() => {
@@ -61,7 +51,7 @@ export default function EventDashboardPage() {
 
     async function loadEvent() {
       try {
-        const data = await apiGet<{ data?: EventItem }>(`/api/events/${params.eventId}`);
+        const data = await apiGet<{ data?: EventItem }>(backendEventId ? `/api/events/${backendEventId}` : "/api/events/invalid");
         
         if (isMounted && data.data) {
           setEvent(data.data);
@@ -76,22 +66,31 @@ export default function EventDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [params.eventId]);
+  }, [backendEventId, params.eventId]);
 
-  // Load activity logs from localStorage
   useEffect(() => {
-    if (!params.eventId) return;
+    function refreshLogs() {
+      setSessionLogs(backendEventId ? getSessionActivityLogs(backendEventId) : []);
+    }
 
-    const logs = getSessionActivityLogs(params.eventId);
-    setTotalLogs(logs.length);
-    setRecentLogs(logs.slice(0, 5));
-  }, [params.eventId]);
+    queueMicrotask(refreshLogs);
+    window.addEventListener(ACTIVITY_LOGS_UPDATED_EVENT, refreshLogs);
+    window.addEventListener("storage", refreshLogs);
+
+    return () => {
+      window.removeEventListener(ACTIVITY_LOGS_UPDATED_EVENT, refreshLogs);
+      window.removeEventListener("storage", refreshLogs);
+    };
+  }, [backendEventId]);
+
+  const totalLogs = sessionLogs.length;
+  const recentLogs = sessionLogs.slice(0, 5);
 
   // Load all activity logs when modal opens
   const handleOpenLogsModal = async () => {
     setShowLogsModal(true);
-    const logs = getSessionActivityLogs(params.eventId);
-    setAllLogs(logs);
+    const logs = getSessionActivityLogs(backendEventId ?? "");
+    setSessionLogs(logs);
   };
 
   const acceptedPercent = event?.invitationCount ? Math.round((event.acceptedCount / event.invitationCount) * 100) : 0;
@@ -228,13 +227,13 @@ export default function EventDashboardPage() {
 
             {/* Modal Content */}
             <div className="overflow-y-auto flex-1 p-6">
-              {allLogs.length === 0 ? (
+              {sessionLogs.length === 0 ? (
                 <div className="flex items-center justify-center h-40">
                   <p className="text-[#9f8e86]">No activity recorded for this event</p>
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {allLogs.map((log) => (
+                  {sessionLogs.map((log) => (
                     <li key={log.id} className="border-l-4 pl-4 pb-4" style={{ borderColor: getActionColor(log.action) }}>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -275,3 +274,4 @@ export default function EventDashboardPage() {
     </main>
   );
 }
+

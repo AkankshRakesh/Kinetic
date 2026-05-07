@@ -177,14 +177,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <header className="w-full z-40 bg-[#0f1218]/95 border-b border-[#3b3430]/80 px-0 py-0 backdrop-blur sticky top-0">
         <div className="mx-auto flex min-h-15 w-full max-w-400 items-center justify-between gap-3 px-4 py-3 text-[11px] tracking-[0.2em] sm:px-8 lg:h-15 lg:py-0">
           <div className="flex h-full min-w-0 items-center gap-6 text-[#8f8078] lg:gap-10">
-            <span className="text-lg font-bold tracking-[0.14em] text-[#ffb77b]">KINETIC_LABS</span>
-            <nav className="hidden h-full items-center gap-8 md:flex">
-              <span className="relative text-[#ffcfaa] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-[#ffcfaa] after:rounded-full">
-                DASHBOARD
-              </span>
-              <span className="hover:text-[#ffcfaa] transition cursor-pointer">REPORTS</span>
-              <span className="hover:text-[#ffcfaa] transition cursor-pointer">TERMINAL</span>
-            </nav>
+            <Link href="/portal"><span className="text-lg font-bold tracking-[0.14em] text-[#ffb77b]">KINETIC_LABS</span></Link>
           </div>
           <div className="flex shrink-0 items-center gap-2">
               <button
@@ -218,12 +211,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <div className="flex flex-1 pb-16 lg:pb-0">
         {/* SIDEBAR */}
         <aside className="hidden lg:flex flex-col items-center w-18 shrink-0 border-r border-[#3b3430]/60 bg-[#0d1016]/90 py-5 gap-1 sticky top-15 h-[calc(100vh-60px)]">
-          <Link href="/"><div className="mb-4 text-[10px] font-bold tracking-[0.3em] text-[#ffb77b]">KL</div></Link>
+          {/* <button onClick={() => router.push(`/portal/events/${eventId}`)}><div className="mb-4 text-[10px] font-bold tracking-[0.3em] text-[#ffb77b]">KL</div></button> */}
+          <SideRailButton icon={<AnalyticsIcon />} label="TERMINAL" router={router} pathname={pathname} route="/" />
           <SideRailButton icon={<EventsIcon />} label="IMAGES" router={router} pathname={pathname} route="/images" />
-          <SideRailButton icon={<GridIcon />} label="GRID" router={router} pathname={pathname} route="/" />
+          <SideRailButton icon={<GridIcon />} label="SCHEDULE" router={router} pathname={pathname} route="/schedule" />
           <SideRailButton icon={<GuestsIcon />} label="GUESTS" router={router} pathname={pathname} route="/guests" />
-          {/* <SideRailButton icon={<AnalyticsIcon />} label="ANALYTICS" router={router} pathname={pathname} route="/analytics" /> */}
-          <SideRailButton icon={<ResearchIcon />} label="SCHEDULE" router={router} pathname={pathname} route="/schedule" />
           <div className="mt-auto">
             <button
               type="button"

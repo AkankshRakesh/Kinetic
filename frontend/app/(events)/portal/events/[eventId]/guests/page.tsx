@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useParams } from "next/navigation";
+import { decodeEventId } from "@/lib/event-route-id";
 import { apiDelete, apiGet, apiPost } from "@/lib/api/client";
+import { logSessionActivity } from "@/lib/activity-logs";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -202,6 +204,7 @@ function StatusBadge({ status }: { status: GuestStatus }) {
 export default function GuestsPage() {
   const params = useParams<{ eventId?: string }>();
   const eventId = params.eventId;
+  const backendEventId = decodeEventId(eventId);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [customMessage, setCustomMessage] = useState("");
@@ -221,14 +224,14 @@ export default function GuestsPage() {
     let isMounted = true;
 
     async function loadInvitations() {
-      if (!eventId) {
+      if (!backendEventId) {
         setRosterLoading(false);
         setError("Open an event before managing invitations.");
         return;
       }
 
       try {
-        const data = await apiGet<InvitationApiResponse>(`/api/events/${eventId}/invite-guest`);
+        const data = await apiGet<InvitationApiResponse>(`/api/events/${backendEventId}/invite-guest`);
 
         if (!Array.isArray(data.data)) {
           return;
@@ -251,7 +254,7 @@ export default function GuestsPage() {
     return () => {
       isMounted = false;
     };
-  }, [eventId]);
+  }, [backendEventId]);
 
   async function handleSendNow() {
     setLoading(true);
@@ -259,23 +262,26 @@ export default function GuestsPage() {
     setSuccess(null);
     console.log("Sending invitation to:", { name, email, customMessage, additionalNames });
     try {
-      if (!eventId) {
+      if (!backendEventId) {
         throw new Error("Open an event before sending invitations.");
       }
 
-      const data = await apiPost<InvitationApiResponse>(`/api/events/${eventId}/invite-guest`, {
+      const data = await apiPost<InvitationApiResponse>(`/api/events/${backendEventId}/invite-guest`, {
         guestName: name,
         guestEmail: email,
         customMessage,
         additionalGuestNames: inviteMultiple ? additionalNames : [],
       });
-
-      if (!data) {
-        const validationErrors = data.errors ? Object.values(data.errors).flat().join(", ") : "";
-        throw new Error(validationErrors || data.message || "Failed to send invitation.");
-      }
       setSuccess("Invitation email sent successfully.");
       const savedInvitation = data.data && !Array.isArray(data.data) ? data.data : null;
+      const peopleCount = savedInvitation?.peopleCount ?? 1 + (inviteMultiple ? additionalNames.length : 0);
+
+      logSessionActivity(backendEventId, "guest_invited", `Sent invite to ${savedInvitation?.guestName ?? name}`, {
+        guest_name: savedInvitation?.guestName ?? name,
+        guest_email: savedInvitation?.guestEmail ?? email,
+        people_count: peopleCount,
+      });
+
       setGuests((prev) => [
         savedInvitation
           ? mapInvitationToGuest(savedInvitation)
@@ -320,7 +326,7 @@ export default function GuestsPage() {
   }
 
   async function handleDeleteGuest(guest: Guest) {
-    if (!eventId) {
+    if (!backendEventId) {
       setError("Open an event before managing invitations.");
       return;
     }
@@ -340,8 +346,13 @@ export default function GuestsPage() {
     setSuccess(null);
 
     try {
-      const response = await apiDelete<InvitationApiResponse>(`/api/events/${eventId}/invite-guest/${guest.id}`);
+      const response = await apiDelete<InvitationApiResponse>(`/api/events/${backendEventId}/invite-guest/${guest.id}`);
       setGuests((prev) => prev.filter((entry) => entry.id !== guest.id));
+      logSessionActivity(backendEventId, "guest_deleted", `Deleted invite for ${guest.name}`, {
+        guest_name: guest.name,
+        guest_email: guest.email,
+        previous_status: guest.status,
+      });
 
       if (messageGuest?.id === guest.id) {
         setMessageGuest(null);

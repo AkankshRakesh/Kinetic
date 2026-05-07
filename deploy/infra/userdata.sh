@@ -57,6 +57,9 @@ apt update
 apt install -y kubelet kubeadm kubectl
 apt-mark hold kubelet kubeadm kubectl
 
+# Adding Helm for prom and graf
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
 # Initialize cluster WITH public IP support
 PUBLIC_IP=$(curl -s ifconfig.me)
 
@@ -80,10 +83,46 @@ kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/
 # Install Ingress
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
 
+echo "Waiting for Kubernetes node to become Ready..."
+
+until kubectl get nodes; do
+  sleep 10
+done
+
+kubectl wait --for=condition=Ready nodes --all --timeout=300s
+
+# Add Prometheus repo
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+helm repo update
+
+kubectl create namespace monitoring
+
+helm install monitoring prometheus-community/kube-prometheus-stack \
+  --namespace monitoring
+
 # Wait for nodes
 sleep 30
 
 kubectl get nodes
+kubectl wait --for=condition=ready pod --all -n monitoring --timeout=600s
 
 cp /etc/kubernetes/admin.conf /home/ubuntu/kubeconfig
 chown ubuntu:ubuntu /home/ubuntu/kubeconfig
+
+kubectl patch svc monitoring-grafana -n monitoring \
+-p '{"spec": {"type": "NodePort"}}'
+
+kubectl patch svc monitoring-kube-prometheus-prometheus -n monitoring \
+-p '{"spec": {"type": "NodePort"}}'
+
+echo "Grafana Service:"
+kubectl get svc monitoring-grafana -n monitoring
+
+echo "Prometheus Service:"
+kubectl get svc monitoring-kube-prometheus-prometheus -n monitoring
+
+kubectl get secret -n monitoring monitoring-grafana \
+-o jsonpath="{.data.admin-password}" | base64 -d
+
+kubectl get svc -n ingress-nginx

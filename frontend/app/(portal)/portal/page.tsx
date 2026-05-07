@@ -6,7 +6,9 @@ import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { encodeEventId } from "@/lib/event-route-id";
 import { apiGet, apiPost } from "@/lib/api/client";
+import { logSessionActivity } from "@/lib/activity-logs";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -162,6 +164,11 @@ export default function PortalEventsPage() {
       }
 
       setEvents((prev) => [data.data as EventItem, ...prev]);
+      logSessionActivity(data.data.id, "event_created", `Created event: ${data.data.name}`, {
+        event_name: data.data.name,
+        location: data.data.location ?? undefined,
+        date: data.data.eventDate ?? undefined,
+      });
       setShowCreateModal(false);
       setNewEventName("");
       setNewEventLocation("");
@@ -283,7 +290,7 @@ export default function PortalEventsPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.04 }}
-                onClick={() => router.push(`/portal/events/${event.id}`)}
+                onClick={() => router.push(`/portal/events/${encodeEventId(event.id)}`)}
                 data-event-card="true"
                 className="group w-[min(88vw,22rem)] flex-none snap-start rounded-md border border-[#2d2f31] bg-[#1b1c1e]/95 p-5 text-left transition hover:border-[#ffb77b]/45 hover:bg-[#202124] sm:w-[20rem] sm:p-6 lg:w-[22rem]"
                 

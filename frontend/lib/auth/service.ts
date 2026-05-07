@@ -250,6 +250,7 @@ const mockAdapter: AuthAdapter = {
     }
 
     if (session.expiresAt < Date.now()) {
+      clearSessionActivityLogs();
       removeValue(SESSION_STORAGE_KEY);
       return null;
     }
@@ -315,6 +316,7 @@ const apiAdapter: AuthAdapter = {
     const raw = readJson<AuthSession | null>(SESSION_STORAGE_KEY, null);
 
     if (raw && raw.expiresAt < Date.now()) {
+      clearSessionActivityLogs();
       removeValue(SESSION_STORAGE_KEY);
       return null;
     }
@@ -326,6 +328,7 @@ const apiAdapter: AuthAdapter = {
     // Verify token by fetching current user
     const user = await fetchCurrentUser(raw.accessToken);
     if (!user) {
+      clearSessionActivityLogs();
       removeValue(SESSION_STORAGE_KEY);
       return null;
     }

@@ -6,6 +6,7 @@ import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useParams } from "next/navigation";
 import { getEventSchedules, createEventSchedule, type EventSchedule } from "@/lib/api/eventSchedules";
 import { logSessionActivity } from "@/lib/activity-logs";
+import { decodeEventId } from "@/lib/event-route-id";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -188,6 +189,7 @@ function CalendarIcon() {
 export default function SchedulePage() {
   const params = useParams<{ eventId?: string }>();
   const eventId = Array.isArray(params.eventId) ? params.eventId[0] : params.eventId;
+  const backendEventId = decodeEventId(eventId);
   const todayKey = startOfToday();
 
   const [viewMonth, setViewMonth] = useState(() => toMonthStart(new Date()));
@@ -207,13 +209,14 @@ export default function SchedulePage() {
 
   // Load events from backend on mount
   useEffect(() => {
-    if (!eventId) return;
+    if (!backendEventId) return;
+    const resolvedEventId = backendEventId;
 
     async function loadSchedules() {
       try {
         setLoading(true);
         setError(null);
-        const schedules = await getEventSchedules(eventId);
+        const schedules = await getEventSchedules(resolvedEventId);
         setEvents(schedules);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load schedules");
@@ -223,7 +226,7 @@ export default function SchedulePage() {
     }
 
     loadSchedules();
-  }, [eventId]);
+  }, [backendEventId]);
 
   useEffect(() => {
     return () => {
@@ -340,7 +343,7 @@ export default function SchedulePage() {
       return;
     }
 
-    if (!eventId) {
+    if (!backendEventId) {
       setMessage("Event ID is missing.");
       return;
     }
@@ -350,7 +353,7 @@ export default function SchedulePage() {
     // Use a color from the palette based on current event count
     const color = EVENT_COLORS[events.length % EVENT_COLORS.length];
 
-    createEventSchedule(eventId, {
+    createEventSchedule(backendEventId,  {
       date_key: composer.dateKey,
       start_time: draftStartTime,
       end_time: draftEndTime,
@@ -362,7 +365,7 @@ export default function SchedulePage() {
         setEvents((current) => [...current, newSchedule]);
         
         // Log to session
-        logSessionActivity(eventId, "schedule_created", `Created schedule: ${newSchedule.title}`, {
+        logSessionActivity(backendEventId,  "schedule_created", `Created schedule: ${newSchedule.title}`, {
           schedule_id: newSchedule.id,
           title: newSchedule.title,
           date: newSchedule.date_key,
@@ -554,7 +557,7 @@ export default function SchedulePage() {
                             <span className="h-1 w-1 shrink-0 rounded-full sm:h-1.5 sm:w-1.5" style={{ backgroundColor: event.color }} />
                             <span className="truncate font-semibold">{event.title}</span>
                           </div>
-                          <div className="mt-0.5 text-[7px] tracking-[0.16em] text-[#9f8e86] sm:text-[8px]">{event.time}</div>
+                          <div className="mt-0.5 text-[7px] tracking-[0.16em] text-[#9f8e86] sm:text-[8px]">{event.start_time}</div>
                         </div>
                       ))}
                       {dayEvents.length > 2 && (
@@ -753,3 +756,5 @@ export default function SchedulePage() {
     </main>
   );
 }
+
+

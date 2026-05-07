@@ -45,7 +45,7 @@
         }
         .cta-button {
             display: inline-block;
-            background-color: #007a4d;
+            background-color: #f0f0f0;
             color: white;
             padding: 14px 32px;
             text-decoration: none;

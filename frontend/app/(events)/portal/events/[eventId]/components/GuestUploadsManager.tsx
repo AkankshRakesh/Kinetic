@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Space_Grotesk, Newsreader } from 'next/font/google';
 import { apiGet, apiPost } from '@/lib/api/client';
+import { decodeEventId } from '@/lib/event-route-id';
+import { logSessionActivity } from '@/lib/activity-logs';
 
 const uiFont = Space_Grotesk({
   subsets: ['latin'],
@@ -34,10 +36,11 @@ type GuestUpload = {
 };
 
 interface GuestUploadsProps {
-  eventId: string;
+  eventId?: string;
 }
 
 export default function GuestUploadsManager({ eventId }: GuestUploadsProps) {
+  const backendEventId = decodeEventId(eventId);
   const [uploads, setUploads] = useState<GuestUpload[]>([]);
   const [loading, setLoading] = useState(true);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -51,17 +54,17 @@ export default function GuestUploadsManager({ eventId }: GuestUploadsProps) {
 
   useEffect(() => {
     loadUploads();
-  }, [eventId]);
+  }, [backendEventId]);
 
   async function loadUploads() {
     try {
       setLoading(true);
-      if (!eventId) {
+      if (!backendEventId) {
         setError('Open an event before managing uploads.');
         setUploads([]);
         return;
       }
-      const data = await apiGet<{ data?: GuestUpload[] }>(`/api/events/${eventId}/uploads`);
+      const data = await apiGet<{ data?: GuestUpload[] }>(`/api/events/${backendEventId}/uploads`);
       setUploads(data.data || []);
     } catch (err) {
       console.error('Failed to load uploads:', err);
@@ -79,17 +82,23 @@ export default function GuestUploadsManager({ eventId }: GuestUploadsProps) {
     setGeneratingLink(true);
     setError(null);
 
-    if (!eventId) {
+    if (!backendEventId) {
       setError('Open an event before generating a share link.');
       setGeneratingLink(false);
       return;
     }
 
     try {
-      const data = await apiPost<{ message?: string }>(`/api/events/${eventId}/share-link`, {
+      await apiPost<{ message?: string }>(`/api/events/${backendEventId}/share-link`, {
         guest_name: guestName,
         guest_email: guestEmail,
         send_email: sendEmail,
+      });
+
+      logSessionActivity(backendEventId, 'upload_link_created', `Generated upload link for ${guestName}`, {
+        guest_name: guestName,
+        guest_email: guestEmail,
+        email_sent: sendEmail,
       });
 
       setSuccess(sendEmail ? 'Share link generated and email sent!' : 'Share link generated! You can now share the link with the guest.');
