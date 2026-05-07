@@ -196,7 +196,7 @@ stages {
 
           ssh -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
-            ubuntu@$CONTROL_IP `
+            ubuntu@${CONTROL_IP} `
             "cat /home/ubuntu/join-command.sh" `
             > join-command.sh
 
@@ -204,7 +204,7 @@ stages {
 
           ssh -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
-            ubuntu@$WORKER_IP `
+            ubuntu@${WORKER_IP} `
             "sudo apt update && sudo apt install -y containerd"
 
           Write-Host "Copying join command..."
@@ -212,13 +212,13 @@ stages {
           scp -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
             join-command.sh `
-            ubuntu@$WORKER_IP:/home/ubuntu/
+            ubuntu@${WORKER_IP}:/home/ubuntu/
 
           Write-Host "Joining worker to cluster..."
 
           ssh -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
-            ubuntu@$WORKER_IP `
+            ubuntu@${WORKER_IP} `
             "chmod +x /home/ubuntu/join-command.sh && sudo bash /home/ubuntu/join-command.sh"
 
           Write-Host "Worker joined successfully"
