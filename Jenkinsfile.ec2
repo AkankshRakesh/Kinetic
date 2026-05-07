@@ -150,7 +150,7 @@ stages {
 
             ssh -o StrictHostKeyChecking=no `
               -i $env:SSH_KEY `
-              ubuntu@$EC2_IP `
+              ubuntu@${EC2_IP} `
               "kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes" `
               *> check.txt
 
@@ -173,7 +173,7 @@ stages {
 
             ssh -o StrictHostKeyChecking=no `
               -i $env:SSH_KEY `
-              ubuntu@$EC2_IP `
+              ubuntu@${EC2_IP} `
               "sudo tail -100 /var/log/user-data.log"
 
             throw "Kubernetes never became ready"
@@ -183,7 +183,7 @@ stages {
 
           scp -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
-            ubuntu@$EC2_IP:/home/ubuntu/kubeconfig `
+            ubuntu@${EC2_IP}:/home/ubuntu/kubeconfig `
             kubeconfig
 
           if ($LASTEXITCODE -ne 0) {
