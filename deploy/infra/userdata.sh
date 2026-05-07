@@ -1,4 +1,3 @@
-```bash
 #!/bin/bash
 
 set -e
@@ -162,4 +161,3 @@ echo "Ingress Services:"
 kubectl get svc -n ingress-nginx
 
 echo "Bootstrap completed successfully."
-```
