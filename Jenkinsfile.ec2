@@ -67,7 +67,7 @@ stages {
         bat '''
           cd deploy\\infra
 
-          for /f "tokens=*" %%i in ('terraform output -raw public_ip') do (
+          for /f "tokens=*" %%i in ('terraform output -raw control_plane_ip') do (
             set EC2_IP=%%i
           )
 
@@ -97,7 +97,7 @@ stages {
             exit /b 1
           )
 
-          timeout /t 5 >nul
+          powershell -Command "Start-Sleep -Seconds 5"
 
           goto :sshloop
 
@@ -118,7 +118,7 @@ stages {
         bat '''
           cd deploy\\infra
 
-          for /f "tokens=*" %%i in ('terraform output -raw public_ip') do (
+          for /f "tokens=*" %%i in ('terraform output -raw control_plane_ip') do (
             set EC2_IP=%%i
           )
 

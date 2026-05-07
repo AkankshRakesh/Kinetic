@@ -15,17 +15,19 @@ class GuestInvitationMail extends Mailable
     public $customMessage;
     public $acceptUrl;
     public $additionalGuestNames;
+    public $eventName;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($guestName, $guestEmail, $customMessage = null, $acceptUrl = null, $additionalGuestNames = [])
+    public function __construct($guestName, $guestEmail, $customMessage = null, $acceptUrl = null, $additionalGuestNames = [], $eventName = 'Kinetic Labs')
     {
         $this->guestName = $guestName;
         $this->guestEmail = $guestEmail;
         $this->customMessage = $customMessage;
         $this->acceptUrl = $acceptUrl;
         $this->additionalGuestNames = $additionalGuestNames;
+        $this->eventName = $eventName;
     }
 
     /**
@@ -33,7 +35,7 @@ class GuestInvitationMail extends Mailable
      */
     public function build()
     {
-        return $this->subject('You are invited to Kinetic Labs')
+        return $this->subject('You are invited to ' . $this->eventName)
             ->view('emails.guest_invitation')
             ->with([
                 'guestName' => $this->guestName,
@@ -41,6 +43,7 @@ class GuestInvitationMail extends Mailable
                 'customMessage' => $this->customMessage,
                 'acceptUrl' => $this->acceptUrl,
                 'additionalGuestNames' => $this->additionalGuestNames,
+                'eventName' => $this->eventName,
             ]);
     }
 }

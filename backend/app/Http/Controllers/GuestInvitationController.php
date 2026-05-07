@@ -94,7 +94,8 @@ class GuestInvitationController extends Controller
                 $data['guestEmail'],
                 $data['customMessage'] ?? null,
                 $this->buildAcceptUrl($acceptToken),
-                $additionalGuestNames
+                $additionalGuestNames,
+                $event->name
             )
         );
 

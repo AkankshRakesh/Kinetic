@@ -2,11 +2,11 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Kinetic Labs Invitation</title>
+    <title>{{ $eventName }} Invitation</title>
 </head>
 <body style="font-family: Arial, sans-serif; background: #18181b; color: white; padding: 2rem;">
     <h2 style="color: #ffb77b;">Hello, {{ $guestName }}!</h2>
-    <p>You have been invited to Kinetic Labs.</p>
+    <p>You have been invited to {{ $eventName }}.</p>
     @if($customMessage)
         <p><strong>Message:</strong> {{ $customMessage }}</p>
     @endif
