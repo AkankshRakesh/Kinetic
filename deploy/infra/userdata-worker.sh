@@ -6,17 +6,25 @@ LOG_FILE="/var/log/user-data.log"
 
 exec > >(tee -a ${LOG_FILE}) 2>&1
 
+echo "========== WORKER BOOTSTRAP START =========="
+
 export DEBIAN_FRONTEND=noninteractive
+
+#######################################
+# Basic packages
+#######################################
 
 apt update -y
 
 apt install -y \
   curl \
+  wget \
+  vim \
   apt-transport-https \
   ca-certificates \
   gnupg \
-  software-properties-common \
-  containerd
+  lsb-release \
+  software-properties-common
 
 #######################################
 # Disable swap
@@ -50,8 +58,10 @@ EOF
 sysctl --system
 
 #######################################
-# Configure containerd
+# Install containerd
 #######################################
+
+apt install -y containerd
 
 mkdir -p /etc/containerd
 
@@ -60,12 +70,23 @@ containerd config default | tee /etc/containerd/config.toml
 sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' \
   /etc/containerd/config.toml
 
+sed -i 's#sandbox_image = .*#sandbox_image = "registry.k8s.io/pause:3.9"#' \
+  /etc/containerd/config.toml
+
 systemctl daemon-reexec
 systemctl enable containerd
 systemctl restart containerd
 
 #######################################
-# Kubernetes packages
+# Wait for containerd
+#######################################
+
+until systemctl is-active --quiet containerd; do
+  sleep 2
+done
+
+#######################################
+# Install Kubernetes
 #######################################
 
 mkdir -p /etc/apt/keyrings
@@ -85,4 +106,4 @@ apt-mark hold kubelet kubeadm kubectl
 
 systemctl enable kubelet
 
-echo "Worker bootstrap complete"
+echo "========== WORKER BOOTSTRAP COMPLETE =========="

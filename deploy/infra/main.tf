@@ -39,7 +39,7 @@ resource "aws_instance" "monitoring_worker" {
   user_data = file("userdata-worker.sh")
 
   lifecycle {
-    ignore_changes = all
+    ignore_changes = [ami]
   }
 
   tags = {
