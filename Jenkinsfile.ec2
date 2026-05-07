@@ -389,16 +389,21 @@ stages {
   stage('Label Monitoring Node') {
     steps {
       powershell '''
-        $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
+        $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
 
-        $monitorNode = kubectl --kubeconfig=$KUBECONFIG_PATH `
-          get nodes -o name | Select-Object -Last 1
+        $WORKER_NODE = kubectl get nodes --no-headers `
+          | Select-String -NotMatch "control-plane" `
+          | ForEach-Object { ($_ -split "\\s+")[0] }
 
-        kubectl --kubeconfig=$KUBECONFIG_PATH `
-          label $monitorNode monitoring=true --overwrite
+        Write-Host "Worker node:"
+        Write-Host $WORKER_NODE
 
-        kubectl --kubeconfig=$KUBECONFIG_PATH `
-          taint $monitorNode monitoring=true:NoSchedule --overwrite
+        kubectl label node $WORKER_NODE monitoring=true --overwrite
+
+        kubectl taint node $WORKER_NODE `
+          monitoring=true:NoSchedule --overwrite
+
+        kubectl get nodes --show-labels
       '''
     }
   }
