@@ -200,15 +200,20 @@ stages {
 
           Write-Host "Fetching join command..."
 
-          ssh -o StrictHostKeyChecking=no `
+          $joinCommand = ssh -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
             ubuntu@${CONTROL_IP} `
-            "cat /home/ubuntu/join-command.sh" `
-            > join-command.sh
+            "cat /home/ubuntu/join-command.sh"
 
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to fetch join command"
           }
+
+          [System.IO.File]::WriteAllText(
+            "join-command.sh",
+            $joinCommand,
+            (New-Object System.Text.UTF8Encoding($false))
+          )
 
           Write-Host "Copying join command..."
 
