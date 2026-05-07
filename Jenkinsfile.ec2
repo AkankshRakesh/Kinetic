@@ -36,6 +36,19 @@ stages {
     }
   }
 
+  stage('Recreate Monitoring Worker') {
+    steps {
+      bat '''
+        cd deploy\\infra
+
+        terraform destroy ^
+          -target aws_instance.monitoring_worker ^
+          -auto-approve ^
+          -var "key_name=kin"
+      '''
+    }
+  }
+
   stage('Provision Infra (Terraform)') {
     steps {
       withCredentials([
