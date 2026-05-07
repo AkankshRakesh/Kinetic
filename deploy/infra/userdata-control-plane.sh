@@ -126,7 +126,7 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 # Public IP
 #######################################
 
-PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+PUBLIC_IP=$(curl -s ifconfig.me)
 
 echo "PUBLIC IP: ${PUBLIC_IP}"
 
@@ -147,7 +147,7 @@ kubeadm init \
 
 mkdir -p /home/ubuntu/.kube
 
-PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+PUBLIC_IP=$(curl -s ifconfig.me)
 
 echo "PUBLIC_IP=${PUBLIC_IP}"
 
