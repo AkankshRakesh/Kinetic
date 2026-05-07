@@ -125,7 +125,7 @@ stages {
     }
   }
 
-  stage('Fetch Kubeconfig') {
+  sstage('Fetch Kubeconfig') {
     steps {
       withCredentials([
         sshUserPrivateKey(
@@ -133,64 +133,68 @@ stages {
           keyFileVariable: 'SSH_KEY'
         )
       ]) {
-        bat '''
-          cd deploy\\infra
+        powershell '''
+          cd deploy/infra
 
-          for /f "tokens=*" %%i in ('terraform output -raw control_plane_ip') do (
-            set EC2_IP=%%i
-          )
+          $EC2_IP = terraform output -raw control_plane_ip
 
-          icacls "%SSH_KEY%" /inheritance:r
-          icacls "%SSH_KEY%" /grant:r "%USERNAME%:R"
-          icacls "%SSH_KEY%" /grant:r "SYSTEM:R"
+          icacls $env:SSH_KEY /inheritance:r | Out-Null
+          icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
+          icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
 
-          echo Waiting for kubeconfig generation...
+          Write-Host "Waiting for Kubernetes API..."
 
-          set RETRY_COUNT=0
+          $ready = $false
 
-          :kubeloop
+          for ($i = 1; $i -le 60; $i++) {
 
-          ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% "test -f /home/ubuntu/kubeconfig && echo exists" > check.txt
+            ssh -o StrictHostKeyChecking=no `
+              -i $env:SSH_KEY `
+              ubuntu@$EC2_IP `
+              "kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes" `
+              *> check.txt
 
-          findstr "exists" check.txt >nul
+            $content = Get-Content check.txt -Raw
 
-          if %ERRORLEVEL% EQU 0 (
-            echo kubeconfig found
-            goto :copykube
-          )
+            Write-Host $content
 
-          echo kubeconfig not ready yet...
+            if ($content -match "Ready") {
+              Write-Host "Kubernetes API ready"
+              $ready = $true
+              break
+            }
 
-          set /a RETRY_COUNT+=1
+            Start-Sleep -Seconds 15
+          }
 
-          if %RETRY_COUNT% GEQ 60 (
-            echo ERROR: kubeconfig was never generated
+          if (-not $ready) {
 
-            echo ===== USER DATA LOG =====
+            Write-Host "===== USER DATA LOG ====="
 
-            ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% "sudo tail -100 /var/log/user-data.log"
+            ssh -o StrictHostKeyChecking=no `
+              -i $env:SSH_KEY `
+              ubuntu@$EC2_IP `
+              "sudo tail -100 /var/log/user-data.log"
 
-            exit /b 1
-          )
+            throw "Kubernetes never became ready"
+          }
 
-          powershell -Command "Start-Sleep -Seconds 10"
+          Write-Host "Fetching kubeconfig..."
 
-          goto :kubeloop
+          scp -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            ubuntu@$EC2_IP:/home/ubuntu/kubeconfig `
+            kubeconfig
 
-          :copykube
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed copying kubeconfig"
+          }
 
-          echo Fetching kubeconfig...
+          cd ../..
 
-          scp -i %SSH_KEY% -o StrictHostKeyChecking=no ^
-            ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
+          powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '$EC2_IP' | Set-Content temp-configmap.yaml"
 
-          del check.txt
-
-          cd ..\\..
-
-          powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
-
-          echo kubeconfig fetched successfully
+          Write-Host "kubeconfig fetched successfully"
         '''
       }
     }
