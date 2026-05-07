@@ -38,14 +38,24 @@ stages {
 
   stage('Recreate Monitoring Worker') {
     steps {
-      bat '''
-        cd deploy\\infra
+      withCredentials([
+        usernamePassword(
+          credentialsId: 'aws-creds',
+          usernameVariable: 'AWS_ACCESS_KEY_ID',
+          passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+        )
+      ]) {
+        bat '''
+          cd deploy\\infra
 
-        terraform destroy ^
-          -target aws_instance.monitoring_worker ^
-          -auto-approve ^
-          -var "key_name=kin"
-      '''
+          terraform init
+
+          terraform destroy ^
+            -target aws_instance.monitoring_worker ^
+            -auto-approve ^
+            -var "key_name=kin"
+        '''
+      }
     }
   }
 
