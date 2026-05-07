@@ -104,17 +104,34 @@ stages {
           icacls "%SSH_KEY%" /grant:r "%USERNAME%:R"
           icacls "%SSH_KEY%" /grant:r "SYSTEM:R"
 
-          scp -i %SSH_KEY% -o StrictHostKeyChecking=no ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
+          echo Waiting for kubeconfig generation...
+
+          for /l %%i in (1,1,60) do (
+            ssh -o StrictHostKeyChecking=no -i %SSH_KEY% ubuntu@%EC2_IP% ^
+            "test -f /home/ubuntu/kubeconfig && echo exists" && goto :copykube
+
+            echo kubeconfig not ready yet...
+            timeout /t 10
+          )
+
+          echo ERROR: kubeconfig was never generated
+          exit /b 1
+
+          :copykube
+
+          echo Fetching kubeconfig...
+
+          scp -i %SSH_KEY% -o StrictHostKeyChecking=no ^
+          ubuntu@%EC2_IP%:/home/ubuntu/kubeconfig kubeconfig
 
           cd ..\\..
 
           powershell -Command "(Get-Content deploy\\k8s\\backend-ec2\\01-configmap.yaml) -replace 'REPLACE_ME', '%EC2_IP%' | Set-Content temp-configmap.yaml"
-          powershell -Command "(Get-Content deploy\\infra\\kubeconfig) -replace 'server: https://.*:6443', 'server: https://%EC2_IP%:6443' | Set-Content deploy\\infra\\kubeconfig"
-          
         '''
       }
     }
   }
+
   
   stage('Wait for K8s Ready') {
     steps {
