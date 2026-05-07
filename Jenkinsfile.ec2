@@ -400,8 +400,6 @@ stages {
 
         kubectl label node $WORKER_NODE monitoring=true --overwrite
 
-        kubectl taint node $WORKER_NODE `
-          monitoring=true:NoSchedule --overwrite
 
         kubectl get nodes --show-labels
       '''
