@@ -229,27 +229,27 @@ stages {
   stage('Install Calico') {
     steps {
       powershell '''
-        $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
+        $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
 
         Write-Host "Using kubeconfig:"
-        Write-Host $KUBECONFIG_PATH
+        Write-Host $env:KUBECONFIG
 
-        kubectl --kubeconfig=$KUBECONFIG_PATH apply -f `
-  https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
+        kubectl apply -f `
+        https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
 
-        if ($LASTEXITCODE -ne 0) {
-          throw "Failed installing Calico"
-        }
+        Write-Host "Waiting for Calico daemonset..."
 
-        kubectl --kubeconfig=$KUBECONFIG_PATH wait `
-          --for=condition=Ready pods `
-          --all `
-          -n calico-system `
+        kubectl rollout status daemonset/calico-node `
+          -n kube-system `
           --timeout=600s
 
-        if ($LASTEXITCODE -ne 0) {
-          throw "Calico pods never became ready"
-        }
+        Write-Host "Waiting for Calico controllers..."
+
+        kubectl rollout status deployment/calico-kube-controllers `
+          -n kube-system `
+          --timeout=600s
+
+        kubectl get pods -n kube-system -o wide
       '''
     }
   }
