@@ -225,11 +225,12 @@ JOIN_CMD=$(kubeadm token create \
   --ttl 24h \
   --print-join-command)
 
-JOIN_CMD=$(echo $JOIN_CMD | \
+JOIN_CMD=$(echo "$JOIN_CMD" | \
   sed "s/[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+/${PUBLIC_IP}/")
 
-echo "${JOIN_CMD} --cri-socket=unix:///run/containerd/containerd.sock" \
-> /home/ubuntu/join-command.sh
+JOIN_CMD="${JOIN_CMD} --cri-socket=unix:///run/containerd/containerd.sock"
+
+echo "$JOIN_CMD" > /home/ubuntu/join-command.sh
 
 chmod +x /home/ubuntu/join-command.sh
 
