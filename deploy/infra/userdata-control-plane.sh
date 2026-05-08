@@ -276,19 +276,19 @@ prometheus-community/kube-prometheus-stack \
 --set kubeControllerManager.enabled=false \
 --set prometheus.prometheusSpec.retention=1d \
 --set prometheus.prometheusSpec.scrapeInterval=60s \
---set prometheus.prometheusSpec.nodeSelector.monitoring=true \
---set grafana.nodeSelector.monitoring=true \
+--set-string prometheus.prometheusSpec.nodeSelector.monitoring=true \
+--set-string grafana.nodeSelector.monitoring=true \
 --set prometheus.prometheusSpec.resources.requests.cpu=100m \
 --set prometheus.prometheusSpec.resources.requests.memory=512Mi \
 --set grafana.resources.requests.cpu=50m \
 --set grafana.resources.requests.memory=128Mi \
 --set prometheus.prometheusSpec.tolerations[0].key=monitoring \
 --set prometheus.prometheusSpec.tolerations[0].operator=Equal \
---set prometheus.prometheusSpec.tolerations[0].value=true \
+--set-string prometheus.prometheusSpec.tolerations[0].value=true \
 --set prometheus.prometheusSpec.tolerations[0].effect=NoSchedule \
 --set grafana.tolerations[0].key=monitoring \
 --set grafana.tolerations[0].operator=Equal \
---set grafana.tolerations[0].value=true \
+--set-string grafana.tolerations[0].value=true \
 --set grafana.tolerations[0].effect=NoSchedule \
 --wait \
 --timeout 20m || true
