@@ -451,13 +451,13 @@ stages {
           icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
           icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
 
-          ssh -o StrictHostKeyChecking=no `
+          ssh -tt -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
             ubuntu@${CONTROL_IP} `
-            "nohup /home/ubuntu/install-monitoring.sh > /var/log/monitoring-install.log 2>&1 &"
+            "bash /home/ubuntu/install-monitoring.sh"
 
           if ($LASTEXITCODE -ne 0) {
-            throw "Failed to start monitoring install"
+            throw "Monitoring installation failed"
           }
         '''
       }
