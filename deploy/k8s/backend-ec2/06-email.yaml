@@ -4,6 +4,7 @@ metadata:
   name: backend-email
   namespace: kinetic-backend
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   selector:
     matchLabels:
@@ -14,6 +15,10 @@ spec:
         app: backend-email
     spec:
       priorityClassName: low-priority
+
+      nodeSelector:
+        app-node: "true"
+
       containers:
         - name: email
           image: akankshrakesh/kinetic-backend:latest # or use :${BUILD_NUMBER}

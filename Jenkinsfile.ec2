@@ -400,6 +400,14 @@ stages {
 
         kubectl label node $WORKER_NODE monitoring=true --overwrite
 
+        kubectl taint node $WORKER_NODE \
+        monitoring=true:NoSchedule --overwrite
+
+        $CONTROL_NODE = kubectl get nodes --no-headers `
+          | Select-String "control-plane" `
+          | ForEach-Object { ($_ -split "\\s+")[0] }
+
+        kubectl label node $CONTROL_NODE app-node=true --overwrite
 
         kubectl get nodes --show-labels
       '''
@@ -430,6 +438,25 @@ stages {
 
         kubectl --kubeconfig=$KUBECONFIG_PATH `
           get svc -n ingress-nginx
+      '''
+    }
+  }
+
+  stage('Pin Ingress To Control Plane') {
+    steps {
+      powershell '''
+        $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
+
+        kubectl patch deployment ingress-nginx-controller `
+          -n ingress-nginx `
+          --type='json' `
+          -p='[
+            {
+              "op":"add",
+              "path":"/spec/template/spec/nodeSelector",
+              "value":{"app-node":"true"}
+            }
+          ]'
       '''
     }
   }

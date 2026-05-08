@@ -4,6 +4,7 @@ metadata:
   name: backend-general
   namespace: kinetic-backend
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   selector:
     matchLabels:
@@ -14,6 +15,10 @@ spec:
         app: backend-general
     spec:
       priorityClassName: high-priority
+
+      nodeSelector:
+        app-node: "true"
+
       containers:
         - name: general
           image: akankshrakesh/kinetic-backend:latest # or use :${BUILD_NUMBER}
