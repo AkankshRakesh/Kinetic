@@ -386,6 +386,26 @@ stages {
     }
   }
 
+  stage('Enable Workloads On Control Plane') {
+    steps {
+      powershell '''
+        $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
+
+        $CONTROL_NODE = kubectl get nodes --no-headers `
+          | Select-String "control-plane" `
+          | ForEach-Object { ($_ -split "\\s+")[0] }
+
+        Write-Host "Removing control-plane taint from:"
+        Write-Host $CONTROL_NODE
+
+        kubectl taint nodes $CONTROL_NODE `
+          node-role.kubernetes.io/control-plane:NoSchedule-
+
+        kubectl describe node $CONTROL_NODE
+      '''
+    }
+  }
+
   stage('Label Monitoring Node') {
     steps {
       powershell '''
@@ -400,7 +420,7 @@ stages {
 
         kubectl label node $WORKER_NODE monitoring=true --overwrite
 
-        kubectl taint node $WORKER_NODE \
+        kubectl taint node $WORKER_NODE `
         monitoring=true:NoSchedule --overwrite
 
         $CONTROL_NODE = kubectl get nodes --no-headers `
