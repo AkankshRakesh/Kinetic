@@ -59,7 +59,7 @@ stages {
   //   }
   // }
 
-  stage('Clean Terraform State') {
+  stage('Destroy Previous Infra') {
     steps {
       withCredentials([
         usernamePassword(
@@ -73,8 +73,8 @@ stages {
 
           terraform init
 
-          terraform state rm aws_instance.control_plane || exit /b 0
-          terraform state rm aws_instance.monitoring_worker || exit /b 0
+          terraform destroy -auto-approve ^
+            -var "key_name=kin" || exit /b 0
         '''
       }
     }
