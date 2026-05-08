@@ -1,0 +1,70 @@
+pipeline {
+
+    stage('Join Worker Node') {
+      steps {
+        withCredentials([
+          sshUserPrivateKey(
+            credentialsId: 'ec2-key',
+            keyFileVariable: 'SSH_KEY'
+          )
+        ]) {
+          powershell '''
+            cd deploy/infra
+
+            $CONTROL_IP = terraform output -raw control_plane_ip
+            $WORKER_IP = terraform output -raw monitoring_worker_ip
+
+            $joinCommand = ssh -o StrictHostKeyChecking=no `
+              -i $env:SSH_KEY `
+              ubuntu@${CONTROL_IP} `
+              "cat /home/ubuntu/join-command.sh"
+
+            ssh -tt -o StrictHostKeyChecking=no `
+              -i $env:SSH_KEY `
+              ubuntu@${WORKER_IP} `
+              "sudo $joinCommand"
+          '''
+        }
+      }
+    }
+
+    stage('Install Ingress') {
+      steps {
+        powershell '''
+          $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
+
+          kubectl --kubeconfig=$KUBECONFIG_PATH apply -f `
+          https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/baremetal/deploy.yaml
+
+          kubectl --kubeconfig=$KUBECONFIG_PATH wait `
+            --namespace ingress-nginx `
+            --for=condition=Ready pod `
+            --selector=app.kubernetes.io/component=controller `
+            --timeout=600s
+        '''
+      }
+    }
+
+    stage('Install Monitoring') {
+      steps {
+        withCredentials([
+          sshUserPrivateKey(
+            credentialsId: 'ec2-key',
+            keyFileVariable: 'SSH_KEY'
+          )
+        ]) {
+          powershell '''
+            cd deploy/infra
+
+            $CONTROL_IP = terraform output -raw control_plane_ip
+
+            ssh -tt -o StrictHostKeyChecking=no `
+              -i $env:SSH_KEY `
+              ubuntu@${CONTROL_IP} `
+              "bash /home/ubuntu/install-monitoring.sh"
+          '''
+        }
+      }
+    }
+  }
+}
