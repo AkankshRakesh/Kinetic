@@ -584,11 +584,35 @@ stages {
 
         Write-Host "Patching ingress controller..."
 
+        Write-Host "Creating ingress patch file..."
+
+@'
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "nodeSelector": {
+          "node-role.kubernetes.io/control-plane": ""
+        },
+        "tolerations": [
+          {
+            "key": "node-role.kubernetes.io/control-plane",
+            "operator": "Exists",
+            "effect": "NoSchedule"
+          }
+        ]
+      }
+    }
+  }
+}
+'@ | Out-File ingress-patch.json -Encoding ascii
+
+Write-Host "Applying ingress patch..."
+
         kubectl --kubeconfig=$KUBECONFIG_PATH patch deployment ingress-nginx-controller `
           -n ingress-nginx `
-          --type='merge' `
-          -p="{\"spec\":{\"template\":{\"spec\":{\"nodeSelector\":{\"node-role.kubernetes.io/control-plane\":\"\"},\"tolerations\":[{\"key\":\"node-role.kubernetes.io/control-plane\",\"operator\":\"Exists\",\"effect\":\"NoSchedule\"}]}}}}"
-
+          --type merge `
+          --patch-file ingress-patch.json
         if ($LASTEXITCODE -ne 0) {
           throw "Failed patching ingress"
         }
