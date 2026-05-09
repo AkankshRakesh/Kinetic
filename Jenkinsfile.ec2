@@ -362,13 +362,29 @@ stages {
             throw "App worker failed joining cluster"
           }
 
-          MONITORING_NODE=$(kubectl get nodes -o name | grep monitoring)
-          APP_NODE=$(kubectl get nodes -o name | grep app)
+          $WORKER_NODES = kubectl get nodes --no-headers `
+            | Select-String -NotMatch "control-plane" `
+            | ForEach-Object { ($_ -split "\\s+")[0] }
 
-          kubectl label $MONITORING_NODE monitoring=true --overwrite
-          kubectl taint $MONITORING_NODE monitoring=true:NoSchedule --overwrite
+          $MONITORING_NODE = $WORKER_NODES[0]
+          $APP_NODE = $WORKER_NODES[1]
 
-          kubectl label $APP_NODE app-worker=true --overwrite
+          Write-Host "Monitoring node:"
+          Write-Host $MONITORING_NODE
+
+          Write-Host "App node:"
+          Write-Host $APP_NODE
+
+          kubectl label node $MONITORING_NODE `
+            monitoring=true --overwrite
+
+          kubectl taint node $MONITORING_NODE `
+            monitoring=true:NoSchedule --overwrite
+
+          kubectl label node $APP_NODE `
+            app-worker=true --overwrite
+
+          kubectl get nodes --show-labels
         '''
       }
     }
