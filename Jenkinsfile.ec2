@@ -6,6 +6,7 @@ K8S_NAMESPACE = 'kinetic-backend'
 IMAGE_TAG     = "${BUILD_NUMBER}"
 BACKEND_IMAGE = "kinetic-backend:${IMAGE_TAG}"
 IMAGE_URI     = "akankshrakesh/kinetic-backend:${IMAGE_TAG}"
+KUBECONFIG = "${WORKSPACE}\\deploy\\infra\\kubeconfig"
 }
 
 stages {
