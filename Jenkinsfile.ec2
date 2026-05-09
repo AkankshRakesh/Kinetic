@@ -310,12 +310,18 @@ stages {
         )
       ]) {
         powershell '''
-          $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
-          
+          $env:KUBECONFIG = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
+
           cd deploy/infra
 
+          Write-Host "Fetching Terraform outputs..."
+
           $CONTROL_IP = terraform output -raw control_plane_ip
-          $WORKER_IP = terraform output -raw monitoring_worker_ip
+          $MONITORING_IP = terraform output -raw monitoring_worker_ip
+          $APP_WORKER_IP = terraform output -raw app_worker_ip
+
+          $MONITORING_PRIVATE_IP = terraform output -raw monitoring_worker_private_ip
+          $APP_PRIVATE_IP = terraform output -raw app_worker_private_ip
 
           Write-Host "Fixing SSH key permissions..."
 
@@ -323,40 +329,49 @@ stages {
           icacls $env:SSH_KEY /grant:r "$env:USERNAME`:R" | Out-Null
           icacls $env:SSH_KEY /grant:r "SYSTEM:R" | Out-Null
 
-          Write-Host "Fetching join command..."
+          Write-Host "Fetching join command from control plane..."
 
-          $joinCommand = ssh -o StrictHostKeyChecking=no `
+          $joinCommand = ssh `
+            -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
             ubuntu@${CONTROL_IP} `
             "cat /home/ubuntu/join-command.sh"
 
           if ($LASTEXITCODE -ne 0) {
-            throw "Failed to fetch join command"
+            throw "Failed fetching join command"
           }
 
           $joinCommand = $joinCommand.Trim()
 
-          Write-Host "Join command fetched:"
+          Write-Host "Join command:"
           Write-Host $joinCommand
 
-          Write-Host "Executing join command on worker..."
+          #################################################
+          # JOIN MONITORING WORKER
+          #################################################
 
-          ssh -tt -o StrictHostKeyChecking=no `
+          Write-Host "Joining monitoring worker..."
+
+          ssh -tt `
+            -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
-            ubuntu@${WORKER_IP} `
+            ubuntu@${MONITORING_IP} `
             "sudo $joinCommand"
 
           if ($LASTEXITCODE -ne 0) {
-            throw "Worker failed joining cluster"
+            throw "Monitoring worker failed joining cluster"
           }
 
-          Write-Host "Worker joined successfully"
+          Write-Host "Monitoring worker joined successfully"
 
-          $APP_WORKER_IP = terraform output -raw app_worker_ip
+          #################################################
+          # JOIN APP WORKER
+          #################################################
 
           Write-Host "Joining app worker..."
 
-          ssh -tt -o StrictHostKeyChecking=no `
+          ssh -tt `
+            -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
             ubuntu@${APP_WORKER_IP} `
             "sudo $joinCommand"
@@ -365,18 +380,66 @@ stages {
             throw "App worker failed joining cluster"
           }
 
-          $WORKER_NODES = kubectl get nodes --no-headers `
-            | Select-String -NotMatch "control-plane" `
+          Write-Host "App worker joined successfully"
+
+          #################################################
+          # WAIT FOR NODE REGISTRATION
+          #################################################
+
+          Write-Host "Waiting for nodes to register..."
+
+          Start-Sleep -Seconds 30
+
+          kubectl get nodes -o wide
+
+          #################################################
+          # WAIT FOR ALL NODES READY
+          #################################################
+
+          Write-Host "Waiting for all nodes to become Ready..."
+
+          kubectl wait `
+            --for=condition=Ready nodes `
+            --all `
+            --timeout=300s
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Nodes did not become Ready"
+          }
+
+          #################################################
+          # FIND NODES DETERMINISTICALLY
+          #################################################
+
+          Write-Host "Finding monitoring node..."
+
+          $MONITORING_NODE = kubectl get nodes -o wide --no-headers `
+            | Select-String $MONITORING_PRIVATE_IP `
             | ForEach-Object { ($_ -split "\\s+")[0] }
 
-          $MONITORING_NODE = $WORKER_NODES[0]
-          $APP_NODE = $WORKER_NODES[1]
+          Write-Host "Finding app worker node..."
+
+          $APP_NODE = kubectl get nodes -o wide --no-headers `
+            | Select-String $APP_PRIVATE_IP `
+            | ForEach-Object { ($_ -split "\\s+")[0] }
+
+          if (-not $MONITORING_NODE) {
+            throw "Monitoring node not found"
+          }
+
+          if (-not $APP_NODE) {
+            throw "App worker node not found"
+          }
 
           Write-Host "Monitoring node:"
           Write-Host $MONITORING_NODE
 
-          Write-Host "App node:"
+          Write-Host "App worker node:"
           Write-Host $APP_NODE
+
+          #################################################
+          # LABEL + TAINT MONITORING NODE
+          #################################################
 
           kubectl label node $MONITORING_NODE `
             monitoring=true --overwrite
@@ -384,10 +447,24 @@ stages {
           kubectl taint node $MONITORING_NODE `
             monitoring=true:NoSchedule --overwrite
 
+          #################################################
+          # LABEL APP WORKER
+          #################################################
+
           kubectl label node $APP_NODE `
             app-worker=true --overwrite
 
+          #################################################
+          # VERIFY LABELS
+          #################################################
+
           kubectl get nodes --show-labels
+
+          #################################################
+          # VERIFY TAINTS
+          #################################################
+
+          kubectl describe node $MONITORING_NODE
         '''
       }
     }
