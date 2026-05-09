@@ -257,7 +257,7 @@ cat <<'EOF' > /home/ubuntu/install-monitoring.sh
 
 set -euxo pipefail
 
-sudo export KUBECONFIG=/etc/kubernetes/admin.conf
+export KUBECONFIG=/etc/kubernetes/admin.conf
 
 helm repo add prometheus-community \
 https://prometheus-community.github.io/helm-charts
