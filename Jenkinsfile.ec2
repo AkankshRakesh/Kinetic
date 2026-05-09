@@ -486,17 +486,17 @@ stages {
           get svc -n ingress-nginx
 
         $patch = @"
-        spec:
-          template:
-            spec:
-              nodeSelector:
-                node-role.kubernetes.io/control-plane: ""
+spec:
+  template:
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
 
-              tolerations:
-              - key: node-role.kubernetes.io/control-plane
-                operator: Exists
-                effect: NoSchedule
-        "@
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+"@
 
         kubectl patch deployment ingress-nginx-controller `
           -n ingress-nginx `
