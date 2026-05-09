@@ -543,8 +543,8 @@ stages {
         # REMOVE OLD LABELS FIRST
         #################################################
 
-        kubectl label node $MONITORING_NODE app-worker- --ignore-not-found
-        kubectl label node $APP_NODE monitoring- --ignore-not-found
+        kubectl label node $MONITORING_NODE app-worker-
+        kubectl label node $APP_NODE monitoring-
 
         #################################################
         # APPLY CORRECT LABELS
@@ -584,12 +584,10 @@ stages {
 
         Write-Host "Patching ingress controller..."
 
-        $patch = '{"spec":{"template":{"spec":{"nodeSelector":{"node-role.kubernetes.io/control-plane":""},"tolerations":[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}'
-
         kubectl --kubeconfig=$KUBECONFIG_PATH patch deployment ingress-nginx-controller `
           -n ingress-nginx `
-          --type merge `
-          -p $patch
+          --type='merge' `
+          -p="{\"spec\":{\"template\":{\"spec\":{\"nodeSelector\":{\"node-role.kubernetes.io/control-plane\":\"\"},\"tolerations\":[{\"key\":\"node-role.kubernetes.io/control-plane\",\"operator\":\"Exists\",\"effect\":\"NoSchedule\"}]}}}}"
 
         if ($LASTEXITCODE -ne 0) {
           throw "Failed patching ingress"
