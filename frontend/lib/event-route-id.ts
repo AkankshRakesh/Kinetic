@@ -19,7 +19,7 @@ export function decodeEventId(routeId?: string | string[] | null): string | null
     return null;
   }
 
-  if (!value.startsWith(EVENT_ROUTE_PREFIX)) {
+  if (!value.startsWith(EVENT_ROUTE_PREFIX)) { 
     return /^\d+$/.test(value) ? value : null;
   }
 
