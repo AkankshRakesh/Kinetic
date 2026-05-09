@@ -23,6 +23,11 @@ resource "aws_instance" "control_plane" {
     Name = "kinetic-control-plane"
     Role = "control-plane"
   }
+
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
 }
 
 ########################################
@@ -45,6 +50,11 @@ resource "aws_instance" "monitoring_worker" {
   tags = {
     Name = "kinetic-monitoring-worker"
     Role = "monitoring"
+  }
+
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
   }
 }
 
@@ -69,5 +79,10 @@ resource "aws_instance" "app_worker" {
   tags = {
     Name = "kinetic-app-worker"
     Role = "app-worker"
+  }
+
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
   }
 }
