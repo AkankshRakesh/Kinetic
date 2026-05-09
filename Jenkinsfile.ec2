@@ -300,7 +300,7 @@ stages {
     }
   }
 
-  stage('Join Monitoring Worker') {
+  stage('Join Workers') {
     steps {
       withCredentials([
         sshUserPrivateKey(
@@ -348,6 +348,19 @@ stages {
           }
 
           Write-Host "Worker joined successfully"
+
+          $APP_WORKER_IP = terraform output -raw app_worker_ip
+
+          Write-Host "Joining app worker..."
+
+          ssh -tt -o StrictHostKeyChecking=no `
+            -i $env:SSH_KEY `
+            ubuntu@${APP_WORKER_IP} `
+            "sudo $joinCommand"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "App worker failed joining cluster"
+          }
         '''
       }
     }
@@ -369,8 +382,8 @@ stages {
 
           $readyNodes = ($nodes | Select-String " Ready ").Count
 
-          if ($readyNodes -ge 2) {
-            Write-Host "Both nodes ready"
+          if ($readyNodes -ge 3) {
+            Write-Host "All nodes ready"
             $ready = $true
             break
           }
@@ -386,7 +399,7 @@ stages {
     }
   }
 
-  stage('Enable Workloads On Control Plane') {
+  stage('Label Nodes') {
     steps {
       powershell '''
         $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
@@ -395,39 +408,26 @@ stages {
           | Select-String "control-plane" `
           | ForEach-Object { ($_ -split "\\s+")[0] }
 
-        Write-Host "Removing control-plane taint from:"
-        Write-Host $CONTROL_NODE
-
-        kubectl taint nodes $CONTROL_NODE `
-          node-role.kubernetes.io/control-plane:NoSchedule-
-
-        kubectl describe node $CONTROL_NODE
-      '''
-    }
-  }
-
-  stage('Label Monitoring Node') {
-    steps {
-      powershell '''
-        $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
-
-        $WORKER_NODE = kubectl get nodes --no-headers `
+        $WORKER_NODES = kubectl get nodes --no-headers `
           | Select-String -NotMatch "control-plane" `
           | ForEach-Object { ($_ -split "\\s+")[0] }
 
-        Write-Host "Worker node:"
-        Write-Host $WORKER_NODE
+        $MONITORING_NODE = $WORKER_NODES[0]
+        $APP_NODE = $WORKER_NODES[1]
 
-        kubectl label node $WORKER_NODE monitoring=true --overwrite
+        Write-Host "Monitoring node:"
+        Write-Host $MONITORING_NODE
 
-        kubectl taint node $WORKER_NODE `
-        monitoring=true:NoSchedule --overwrite
+        Write-Host "App worker node:"
+        Write-Host $APP_NODE
 
-        $CONTROL_NODE = kubectl get nodes --no-headers `
-          | Select-String "control-plane" `
-          | ForEach-Object { ($_ -split "\\s+")[0] }
+        kubectl label node $MONITORING_NODE monitoring=true --overwrite
 
-        kubectl label node $CONTROL_NODE app-worker=true --overwrite
+        kubectl taint node $MONITORING_NODE `
+          monitoring=true:NoSchedule --overwrite
+
+        kubectl label node $APP_NODE `
+          app-worker=true --overwrite
 
         kubectl get nodes --show-labels
       '''
@@ -458,23 +458,9 @@ stages {
 
         kubectl --kubeconfig=$KUBECONFIG_PATH `
           get svc -n ingress-nginx
-      '''
-    }
-  }
 
-  stage('Pin Ingress To Control Plane') {
-    steps {
-      powershell '''
-        $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
-
-        kubectl patch deployment ingress-nginx-controller `
-          -n ingress-nginx `
-          --type merge `
-          -p "{\\"spec\\":{\\"template\\":{\\"spec\\":{\\"nodeSelector\\":{\\"app-node\\":\\"true\\"}}}}}"
-
-        kubectl rollout status deployment/ingress-nginx-controller `
-          -n ingress-nginx `
-          --timeout=300s
+        kubectl --kubeconfig=$KUBECONFIG_PATH apply -f `
+          deploy/k8s/backend-ec2/08-ingress-controller-patch.yaml
       '''
     }
   }
