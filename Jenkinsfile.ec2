@@ -309,6 +309,8 @@ stages {
         )
       ]) {
         powershell '''
+          $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
+          
           cd deploy/infra
 
           $CONTROL_IP = terraform output -raw control_plane_ip
