@@ -10,7 +10,7 @@ RUN composer install \
     --no-scripts \
     --optimize-autoloader
 
-FROM php:8.2-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 RUN apk add --no-cache nginx supervisor curl fcgi gettext libpq \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev \
