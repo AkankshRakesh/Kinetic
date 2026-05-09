@@ -47,3 +47,27 @@ resource "aws_instance" "monitoring_worker" {
     Role = "monitoring"
   }
 }
+
+
+########################################
+# APP WORKER NODE
+########################################
+
+resource "aws_instance" "app_worker" {
+  ami           = "ami-0388e3ada3d9812da"
+  instance_type = "c7i-flex.large"
+  key_name      = var.key_name
+
+  vpc_security_group_ids = [aws_security_group.k8s.id]
+
+  user_data = file("userdata-worker.sh")
+
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
+  tags = {
+    Name = "kinetic-app-worker"
+    Role = "app-worker"
+  }
+}

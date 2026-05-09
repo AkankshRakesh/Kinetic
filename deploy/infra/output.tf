@@ -13,3 +13,11 @@ output "ssh_control_plane" {
 output "ssh_monitoring_worker" {
   value = "ssh -i kin.pem ubuntu@${aws_instance.monitoring_worker.public_ip}"
 }
+
+output "app_worker_ip" {
+  value = aws_instance.app_worker.public_ip
+}
+
+output "ssh_app_worker" {
+  value = "ssh -i kin.pem ubuntu@${aws_instance.app_worker.public_ip}"
+}

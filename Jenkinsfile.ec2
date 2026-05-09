@@ -427,7 +427,7 @@ stages {
           | Select-String "control-plane" `
           | ForEach-Object { ($_ -split "\\s+")[0] }
 
-        kubectl label node $CONTROL_NODE app-node=true --overwrite
+        kubectl label node $CONTROL_NODE app-worker=true --overwrite
 
         kubectl get nodes --show-labels
       '''
