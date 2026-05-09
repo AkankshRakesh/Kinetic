@@ -74,7 +74,7 @@ stages {
           terraform init
 
           terraform destroy -auto-approve ^
-            -var "key_name=kin" || exit /b 0
+            -var "key_name=kin"
         '''
       }
     }
