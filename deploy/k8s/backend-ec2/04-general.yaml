@@ -32,10 +32,10 @@ spec:
           
           resources:
             requests:
-              cpu: "300m"
+              cpu: "100m"
               memory: "512Mi"
             limits:
-              cpu: "700m"
+              cpu: "300m"
               memory: "1Gi"
 
           readinessProbe:

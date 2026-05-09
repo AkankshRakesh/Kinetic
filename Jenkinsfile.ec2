@@ -499,7 +499,7 @@ stages {
           ssh -tt -o StrictHostKeyChecking=no `
             -i $env:SSH_KEY `
             ubuntu@${CONTROL_IP} `
-            "bash /home/ubuntu/install-monitoring.sh"
+            "sudo bash /home/ubuntu/install-monitoring.sh"
 
           if ($LASTEXITCODE -ne 0) {
             throw "Monitoring installation failed"
