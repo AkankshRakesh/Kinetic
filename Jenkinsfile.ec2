@@ -485,8 +485,23 @@ stages {
         kubectl --kubeconfig=$KUBECONFIG_PATH `
           get svc -n ingress-nginx
 
-        kubectl --kubeconfig=$KUBECONFIG_PATH apply -f `
-          deploy/k8s/backend-ec2/08-ingress-controller-patch.yaml
+        $patch = @"
+        spec:
+          template:
+            spec:
+              nodeSelector:
+                node-role.kubernetes.io/control-plane: ""
+
+              tolerations:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+                effect: NoSchedule
+        "@
+
+        kubectl patch deployment ingress-nginx-controller `
+          -n ingress-nginx `
+          --type merge `
+          -p $patch
       '''
     }
   }
