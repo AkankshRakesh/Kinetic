@@ -21,7 +21,7 @@ spec:
 
       containers:
         - name: email
-          image: akankshrakesh/kinetic-backend:latest # or use :${BUILD_NUMBER}
+          image: akankshrakesh/kinetic-backend:${BUILD_NUMBER} # or use :${BUILD_NUMBER}
           command: ["php", "artisan", "queue:work", "--queue=emails"]
           envFrom:
             - configMapRef:
