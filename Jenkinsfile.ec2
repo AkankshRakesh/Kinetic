@@ -485,23 +485,17 @@ stages {
         kubectl --kubeconfig=$KUBECONFIG_PATH `
           get svc -n ingress-nginx
 
-        $patch = @"
-spec:
-  template:
-    spec:
-      nodeSelector:
-        node-role.kubernetes.io/control-plane: ""
-
-      tolerations:
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
-"@
-
         kubectl patch deployment ingress-nginx-controller `
           -n ingress-nginx `
           --type merge `
-          -p $patch
+          -p '{\"spec\":{\"template\":{\"spec\":{\"nodeSelector\":{\"node-role.kubernetes.io/control-plane\":\"\"},\"tolerations\":[{\"key\":\"node-role.kubernetes.io/control-plane\",\"operator\":\"Exists\",\"effect\":\"NoSchedule\"}]}}}}'
+
+        kubectl rollout restart deployment ingress-nginx-controller `
+          -n ingress-nginx
+
+        kubectl rollout status deployment ingress-nginx-controller `
+          -n ingress-nginx `
+          --timeout=180s
       '''
     }
   }
