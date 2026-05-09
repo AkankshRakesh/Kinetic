@@ -14,7 +14,7 @@ export function encodeEventId(id: string | number): string {
 
 export function decodeEventId(routeId?: string | string[] | null): string | null {
   const value = Array.isArray(routeId) ? routeId[0] : routeId;
-
+  
   if (!value) {
     return null;
   }  
