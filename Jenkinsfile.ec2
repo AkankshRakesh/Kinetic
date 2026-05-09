@@ -506,18 +506,32 @@ stages {
   stage('Label Nodes') {
     steps {
       powershell '''
-        $env:KUBECONFIG = "$PWD\\deploy\\infra\\kubeconfig"
+        $env:KUBECONFIG = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
 
-        $CONTROL_NODE = kubectl get nodes --no-headers `
-          | Select-String "control-plane" `
+        cd deploy/infra
+
+        $MONITORING_PRIVATE_IP = terraform output -raw monitoring_worker_private_ip
+        $APP_PRIVATE_IP = terraform output -raw app_worker_private_ip
+
+        Write-Host "Finding monitoring node..."
+
+        $MONITORING_NODE = kubectl get nodes -o wide --no-headers `
+          | Select-String $MONITORING_PRIVATE_IP `
           | ForEach-Object { ($_ -split "\\s+")[0] }
 
-        $WORKER_NODES = kubectl get nodes --no-headers `
-          | Select-String -NotMatch "control-plane" `
+        Write-Host "Finding app worker node..."
+
+        $APP_NODE = kubectl get nodes -o wide --no-headers `
+          | Select-String $APP_PRIVATE_IP `
           | ForEach-Object { ($_ -split "\\s+")[0] }
 
-        $MONITORING_NODE = $WORKER_NODES[0]
-        $APP_NODE = $WORKER_NODES[1]
+        if (-not $MONITORING_NODE) {
+          throw "Monitoring node not found"
+        }
+
+        if (-not $APP_NODE) {
+          throw "App node not found"
+        }
 
         Write-Host "Monitoring node:"
         Write-Host $MONITORING_NODE
@@ -525,7 +539,19 @@ stages {
         Write-Host "App worker node:"
         Write-Host $APP_NODE
 
-        kubectl label node $MONITORING_NODE monitoring=true --overwrite
+        #################################################
+        # REMOVE OLD LABELS FIRST
+        #################################################
+
+        kubectl label node $MONITORING_NODE app-worker- --ignore-not-found
+        kubectl label node $APP_NODE monitoring- --ignore-not-found
+
+        #################################################
+        # APPLY CORRECT LABELS
+        #################################################
+
+        kubectl label node $MONITORING_NODE `
+          monitoring=true --overwrite
 
         kubectl taint node $MONITORING_NODE `
           monitoring=true:NoSchedule --overwrite
@@ -543,6 +569,8 @@ stages {
       powershell '''
         $KUBECONFIG_PATH = "$env:WORKSPACE\\deploy\\infra\\kubeconfig"
 
+        Write-Host "Installing ingress controller..."
+
         kubectl --kubeconfig=$KUBECONFIG_PATH apply -f `
   https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/cloud/deploy.yaml
 
@@ -550,18 +578,11 @@ stages {
           throw "Failed installing ingress"
         }
 
-        kubectl --kubeconfig=$KUBECONFIG_PATH wait `
-          --namespace ingress-nginx `
-          --for=condition=Ready pod `
-          --selector=app.kubernetes.io/component=controller `
-          --timeout=600s
+        #################################################
+        # PATCH INGRESS BEFORE WAITING
+        #################################################
 
-        if ($LASTEXITCODE -ne 0) {
-          throw "Ingress never became ready"
-        }
-
-        kubectl --kubeconfig=$KUBECONFIG_PATH `
-          get svc -n ingress-nginx
+        Write-Host "Patching ingress controller..."
 
         $patch = '{"spec":{"template":{"spec":{"nodeSelector":{"node-role.kubernetes.io/control-plane":""},"tolerations":[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}'
 
@@ -570,12 +591,32 @@ stages {
           --type merge `
           -p $patch
 
+        if ($LASTEXITCODE -ne 0) {
+          throw "Failed patching ingress"
+        }
+
+        #################################################
+        # RESTART AFTER PATCH
+        #################################################
+
         kubectl --kubeconfig=$KUBECONFIG_PATH rollout restart deployment ingress-nginx-controller `
           -n ingress-nginx
 
+        #################################################
+        # NOW WAIT FOR ROLLOUT
+        #################################################
+
         kubectl --kubeconfig=$KUBECONFIG_PATH rollout status deployment ingress-nginx-controller `
           -n ingress-nginx `
-          --timeout=180s
+          --timeout=600s
+
+        if ($LASTEXITCODE -ne 0) {
+          throw "Ingress rollout failed"
+        }
+
+        kubectl --kubeconfig=$KUBECONFIG_PATH get pods -n ingress-nginx -o wide
+
+        kubectl --kubeconfig=$KUBECONFIG_PATH get svc -n ingress-nginx
       '''
     }
   }
