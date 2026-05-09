@@ -361,6 +361,14 @@ stages {
           if ($LASTEXITCODE -ne 0) {
             throw "App worker failed joining cluster"
           }
+
+          MONITORING_NODE=$(kubectl get nodes -o name | grep monitoring)
+          APP_NODE=$(kubectl get nodes -o name | grep app)
+
+          kubectl label $MONITORING_NODE monitoring=true --overwrite
+          kubectl taint $MONITORING_NODE monitoring=true:NoSchedule --overwrite
+
+          kubectl label $APP_NODE app-worker=true --overwrite
         '''
       }
     }
