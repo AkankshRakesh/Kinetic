@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useParams } from "next/navigation";
-import { getEventSchedules, createEventSchedule, type EventSchedule } from "@/lib/api/eventSchedules";
+import { getEventSchedules, createEventSchedule, deleteEventSchedule, type EventSchedule } from "@/lib/api/eventSchedules";
 import { logSessionActivity } from "@/lib/activity-logs";
 import { decodeEventId } from "@/lib/event-route-id";
 
@@ -169,6 +169,14 @@ function CloseIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M2.5 3.5H11.5M5 3.5V2.5C5 2.22386 5.22386 2 5.5 2H8.5C8.77614 2 9 2.22386 9 2.5V3.5M4.5 3.5L5 11C5 11.2761 5.22386 11.5 5.5 11.5H8.5C8.77614 11.5 9 11.2761 9 11L9.5 3.5M6 5.5V9.5M8 5.5V9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function PlusIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -297,6 +305,10 @@ export default function SchedulePage() {
     }
   }
 
+  function handleOpenComposerForSelectedDate() {
+    openComposer(selectedDateKey, "click");
+  }
+
   function scheduleHoverClose() {
     if (!composer || composer.mode === "click") {
       return;
@@ -382,6 +394,38 @@ export default function SchedulePage() {
       .catch((err) => {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         setMessage(`Error saving event: ${errorMsg}`);
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
+  }
+
+  function handleDeleteEvent(eventIdToDelete: number) {
+    if (!backendEventId) {
+      setMessage("Event ID is missing.");
+      return;
+    }
+
+    const targetEvent = events.find((event) => event.id === eventIdToDelete);
+    if (!targetEvent) {
+      return;
+    }
+
+    setIsSaving(true);
+    deleteEventSchedule(backendEventId, eventIdToDelete)
+      .then(() => {
+        setEvents((current) => current.filter((event) => event.id !== eventIdToDelete));
+        logSessionActivity(backendEventId, "schedule_deleted", `Deleted schedule: ${targetEvent.title}`, {
+          schedule_id: eventIdToDelete,
+          title: targetEvent.title,
+          date: targetEvent.date_key,
+          time: `${targetEvent.start_time} - ${targetEvent.end_time}`,
+        });
+        setMessage(`Deleted ${targetEvent.title}.`);
+      })
+      .catch((err) => {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        setMessage(`Error deleting event: ${errorMsg}`);
       })
       .finally(() => {
         setIsSaving(false);
@@ -515,7 +559,7 @@ export default function SchedulePage() {
                       if (!day.inCurrentMonth) {
                         setViewMonth(keyToDate(day.dateKey));
                       }
-                      openComposer(day.dateKey, "click");
+                        setSelectedDateKey(day.dateKey);
                     }}
                     
                     className={`group relative min-h-24 rounded-lg border p-1.5 text-left transition sm:min-h-28 sm:rounded-xl sm:p-2 lg:min-h-40 lg:rounded-[22px] lg:p-3 ${
@@ -586,15 +630,22 @@ export default function SchedulePage() {
                 <p className="text-[9px] font-semibold tracking-[0.28em] text-[#8f8078] sm:text-[10px]">DAY AGENDA</p>
                 <h2 className={`${displayFont.className} mt-1.5 text-xl italic text-[#f1ddcc] sm:mt-2 sm:text-3xl`}>{formatShortDay(selectedDateKey)}</h2>
               </div>
-              <div className="rounded-full border border-[#ffb77b]/30 bg-[#2a1f0e] px-2.5 py-1.5 text-[8px] tracking-[0.2em] text-[#ffcfaa] sm:px-3 sm:py-2 sm:text-[9px]">
-                {selectedDateEvents.length} ITEM(S)
-              </div>
+              <button
+                type="button"
+                onClick={handleOpenComposerForSelectedDate}
+                className="flex items-center gap-1 rounded-full border border-[#ffb77b]/30 bg-[#2a1f0e] px-2.5 py-1.5 text-[8px] font-semibold tracking-[0.2em] text-[#ffcfaa] transition hover:bg-[#ffb77b]/15 sm:px-3 sm:py-2 sm:text-[9px]"
+                aria-label="Add event for selected date"
+                title="Add event"
+              >
+                <PlusIcon />
+                ADD EVENT
+              </button>
             </div>
 
             <div className="space-y-2 sm:space-y-3">
               {selectedDateEvents.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-white/10 bg-white/2.5 px-3 py-4 text-xs leading-5 text-[#a39288] sm:rounded-2xl sm:px-4 sm:py-6 sm:text-sm sm:leading-6">
-                  No events are scheduled for {formatShortDay(selectedDateKey)} yet. Hover or click the date on the calendar to add one.
+                  No events are scheduled for {formatShortDay(selectedDateKey)} yet. Use ADD EVENT to create one.
                 </div>
               ) : (
                 selectedDateEvents.map((event) => (
@@ -607,6 +658,16 @@ export default function SchedulePage() {
                         </div>
                         <p className="mt-1.5 text-[9px] tracking-[0.22em] text-[#9f8e86] sm:mt-2 sm:text-[10px] sm:tracking-[0.24em]">{event.start_time} - {event.end_time}</p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEvent(event.id)}
+                        disabled={isSaving}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-[#d1c4bb] transition hover:border-[#ff7b7b]/40 hover:bg-[#2a1111] hover:text-[#ff9d9d] disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label={`Delete ${event.title}`}
+                        title="Delete event"
+                      >
+                        <TrashIcon />
+                      </button>
                     </div>
                     {event.note && <p className="mt-2 text-xs leading-5 text-[#c7bab2] sm:mt-3 sm:text-sm sm:leading-6">{event.note}</p>}
                   </div>

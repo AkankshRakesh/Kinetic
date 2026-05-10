@@ -46,6 +46,7 @@ Route::get('/invitations/{token}/accept', [GuestInvitationController::class, 'ac
 Route::post('/invitations/{token}/respond', [GuestInvitationController::class, 'respond']);
 
 Route::get('/uploads/{shareToken}', [GuestUploadController::class, 'checkShareLink']);
+Route::get('/uploads/{shareToken}/schedule', [GuestUploadController::class, 'getScheduleByShareToken']);
 
 Route::post('/uploads/{shareToken}', [GuestUploadController::class, 'uploadImages']);
 

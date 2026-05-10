@@ -4,6 +4,7 @@
 import { Suspense, useState } from "react";
 import { Newsreader, Space_Grotesk } from "next/font/google";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 const uiFont = Space_Grotesk({
   subsets: ["latin"],
@@ -25,6 +26,7 @@ function AcceptInviteContent() {
   const [state, setState] = useState<ResponseState>("ready");
   const [message, setMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("Add an optional note, then choose how you would like to respond.");
+  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
 
   async function submitResponse(decision: InviteDecision) {
     if (!token) {
@@ -49,7 +51,10 @@ function AcceptInviteContent() {
           message,
         }),
       });
-      const data = (await response.json().catch(() => ({}))) as { message?: string };
+      const data = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        data?: { uploadUrl?: string | null };
+      };
 
       if (!response.ok) {
         setState(response.status === 404 ? "invalid" : "error");
@@ -59,6 +64,9 @@ function AcceptInviteContent() {
 
       setState(decision);
       setStatusMessage(data.message || (decision === "accepted" ? "Invitation accepted." : "Invitation rejected."));
+      if (decision === "accepted" && data.data?.uploadUrl) {
+        setUploadUrl(data.data.uploadUrl);
+      }
     } catch (err: unknown) {
       setState("error");
       setStatusMessage(err instanceof Error ? err.message : "We could not reach the invitation server.");
@@ -117,6 +125,17 @@ function AcceptInviteContent() {
                 Reject Invite
               </button>
             </div>
+          </div>
+        )}
+
+        {state === "accepted" && uploadUrl && (
+          <div className="mt-6">
+            <Link
+              href={uploadUrl}
+              className="inline-flex w-full items-center justify-center bg-[#ffb77b] px-5 py-3 text-xs font-bold tracking-[0.18em] text-[#2e1500] transition hover:bg-[#ffc994]"
+            >
+              OPEN UPLOAD + SCHEDULE PAGE
+            </Link>
           </div>
         )}
       </section>

@@ -231,12 +231,43 @@ class GuestUploadController extends Controller
             'data' => [
                 'isValid' => true,
                 'eventName' => $guestUpload->event->name,
+                'eventDate' => $guestUpload->event->event_date?->toDateString(),
                 'guestName' => $guestUpload->guest_name,
                 'guestEmail' => $guestUpload->guest_email,
                 'uploadCount' => $guestUpload->upload_count,
                 'remainingSlots' => max(0, $remainingSlots),
                 'maxImagesExceeded' => $remainingSlots <= 0,
                 'images' => $guestUpload->image_paths ?? [],
+            ],
+        ]);
+    }
+
+    /**
+     * Get event schedule for a share token (public endpoint)
+     */
+    public function getScheduleByShareToken(string $shareToken)
+    {
+        $guestUpload = GuestUpload::query()
+            ->where('share_token', $shareToken)
+            ->with('event')
+            ->first();
+
+        if (! $guestUpload || ! $guestUpload->event) {
+            return response()->json(['message' => 'Invalid share link.'], 404);
+        }
+
+        $schedules = $guestUpload->event->schedules()
+            ->orderBy('date_key')
+            ->orderBy('start_time')
+            ->orderBy('end_time')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'eventName' => $guestUpload->event->name,
+                'eventDate' => $guestUpload->event->event_date?->toDateString(),
+                'schedules' => $schedules,
+                'lastUpdatedAt' => $schedules->max('updated_at')?->toISOString(),
             ],
         ]);
     }

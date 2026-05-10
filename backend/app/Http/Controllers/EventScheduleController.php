@@ -17,7 +17,8 @@ class EventScheduleController extends Controller
     {
         $schedules = $event->schedules()
             ->orderBy('date_key')
-            ->orderBy('time')
+            ->orderBy('start_time')
+            ->orderBy('end_time')
             ->get();
 
         return response()->json([

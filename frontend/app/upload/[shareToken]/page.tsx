@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 const AUTH_API_BASE_URL = (process.env.NEXT_PUBLIC_AUTH_API_BASE_URL ?? '').replace(/\/$/, '');
 
 type ShareLinkInfo = {
   isValid: boolean;
   eventName: string;
+  eventDate?: string | null;
   guestName: string;
   guestEmail: string;
   uploadCount: number;
@@ -23,7 +24,6 @@ type ShareLinkInfo = {
 
 export default function GuestUploadPage() {
   const params = useParams();
-  const router = useRouter();
   const shareToken = params.shareToken as string;
 
   const [linkInfo, setLinkInfo] = useState<ShareLinkInfo | null>(null);
@@ -35,28 +35,42 @@ export default function GuestUploadPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
-    checkShareLink();
-  }, [shareToken]);
+    let isMounted = true;
 
-  async function checkShareLink() {
-    try {
-      const response = await fetch(`${AUTH_API_BASE_URL}/api/uploads/${shareToken}`);
-      const data = await response.json();
+    async function loadShareLink() {
+      try {
+        const response = await fetch(`${AUTH_API_BASE_URL}/api/uploads/${shareToken}`);
+        const data = await response.json();
 
-      if (!response.ok) {
-        setError('Invalid or expired share link');
-        return;
+        if (!isMounted) {
+          return;
+        }
+
+        if (!response.ok) {
+          setError('Invalid or expired share link');
+          return;
+        }
+
+        setLinkInfo(data.data);
+        setError(null);
+      } catch (err) {
+        if (isMounted) {
+          setError('Failed to verify share link');
+          console.error(err);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-
-      setLinkInfo(data.data);
-      setError(null);
-    } catch (err) {
-      setError('Failed to verify share link');
-      console.error(err);
-    } finally {
-      setLoading(false);
     }
-  }
+
+    void loadShareLink();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [shareToken]);
 
   function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
@@ -103,14 +117,19 @@ export default function GuestUploadPage() {
 
       xhr.addEventListener('load', async () => {
         if (xhr.status === 201) {
-          const response = JSON.parse(xhr.responseText);
+          JSON.parse(xhr.responseText);
           setSuccess(true);
           setSelectedFiles([]);
           setUploadProgress(0);
 
           // Refresh link info after successful upload
           await new Promise((r) => setTimeout(r, 1500));
-          await checkShareLink();
+          const refreshedResponse = await fetch(`${AUTH_API_BASE_URL}/api/uploads/${shareToken}`);
+          const refreshedData = await refreshedResponse.json();
+          if (refreshedResponse.ok) {
+            setLinkInfo(refreshedData.data as ShareLinkInfo);
+            setError(null);
+          }
         } else {
           const errorData = JSON.parse(xhr.responseText);
           setError(errorData.message || 'Upload failed');
@@ -168,7 +187,11 @@ export default function GuestUploadPage() {
             <p className="mt-2 text-[#9ca3ad]">
               Hi {linkInfo.guestName}, please upload your photos from the event
             </p>
+            {linkInfo.eventDate && (
+              <p className="mt-2 text-sm text-[#cbbab0]">Event date: {new Date(linkInfo.eventDate).toLocaleDateString()}</p>
+            )}
           </div>
+
 
           {/* Upload Status */}
           <div className="mb-6 rounded-md bg-[#111316] p-4">
@@ -200,34 +223,6 @@ export default function GuestUploadPage() {
           {linkInfo.maxImagesExceeded && (
             <div className="mb-4 rounded-md border border-[#ffb77b]/30 bg-[#ffb77b]/10 p-3 text-sm text-[#ffb77b]">
               You have reached the maximum of 5 images. No more uploads are allowed.
-            </div>
-          )}
-
-          {/* Display Uploaded Images Gallery */}
-          {linkInfo.images && linkInfo.images.length > 0 && (
-            <div className="mb-8">
-              <h2 className="mb-4 font-semibold text-[#f1e8df]">Your Uploaded Photos ({linkInfo.uploadCount})</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {linkInfo.images.map((image, index) => (
-                  <a
-                    key={index}
-                    href={image.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative aspect-square overflow-hidden rounded-md border border-[#3b3430] transition hover:border-[#ffb77b]/45"
-                  >
-                    <img
-                      src={image.url}
-                      alt={image.filename}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/30" />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
-                      <span className="text-[10px] text-white">View</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
             </div>
           )}
 
