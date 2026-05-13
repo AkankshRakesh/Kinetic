@@ -408,7 +408,7 @@ stages {
           }
 
           #################################################
-          # FIND NODES DETERMINISTICALLY
+          # FIND NODES
           #################################################
 
           Write-Host "Finding monitoring node..."
@@ -716,7 +716,7 @@ Write-Host "Applying ingress patch..."
             kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\01-configmap.yaml
             kubectl --kubeconfig=%KUBECONFIG% apply -f temp-configmap.yaml
 
-            REM 🔥 Apply priority classes FIRST (cluster-wide)
+            REM Apply priority classes FIRST (cluster-wide)
             kubectl --kubeconfig=%KUBECONFIG% apply -f deploy\\k8s\\backend-ec2\\02-priority.yaml
 
             REM Secrets

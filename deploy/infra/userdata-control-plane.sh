@@ -16,10 +16,6 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt update -y
 
-# IMPORTANT:
-# DO NOT RUN apt upgrade -y
-# It causes random networking/service restarts during cloud-init
-
 apt install -y \
   curl \
   wget \
@@ -166,54 +162,6 @@ echo "========== GENERATED KUBECONFIG =========="
 cat /home/ubuntu/kubeconfig
 
 #######################################
-# Remove master taint
-#######################################
-
-# kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
-
-#######################################
-# Install Calico
-#######################################
-
-# echo "Installing Calico..."
-
-# kubectl apply -f \
-# https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml
-
-# #######################################
-# # Wait for node ready
-# #######################################
-
-# echo "Waiting for node readiness..."
-
-# timeout 600 bash -c '
-# until kubectl get nodes 2>/dev/null | grep -q " Ready"; do
-#   sleep 5
-# done
-# '
-
-# kubectl get nodes -o wide
-
-# #######################################
-# # Install ingress nginx
-# #######################################
-
-# echo "Installing ingress-nginx..."
-
-# kubectl apply -f \
-# https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
-
-# #######################################
-# # Wait for ingress
-# #######################################
-
-# kubectl wait \
-#   --namespace ingress-nginx \
-#   --for=condition=Ready pod \
-#   --selector=app.kubernetes.io/component=controller \
-#   --timeout=600s || true
-
-#######################################
 # Generate worker join command
 #######################################
 
@@ -238,15 +186,6 @@ echo "===== FINAL JOIN COMMAND ====="
 cat /home/ubuntu/join-command.sh
 
 chmod +x /home/ubuntu/join-command.sh
-
-#######################################
-# Label current node
-#######################################
-
-# CONTROL_NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
-
-# kubectl label node ${CONTROL_NODE} \
-# node-role.kubernetes.io/control-plane=control-plane --overwrite
 
 #######################################
 # Install lightweight monitoring

@@ -21,7 +21,7 @@ spec:
       
       containers:
         - name: auth
-          image: akankshrakesh/kinetic-backend:${BUILD_NUMBER} # or use :${BUILD_NUMBER}
+          image: akankshrakesh/kinetic-backend:${BUILD_NUMBER}
           envFrom:
             - configMapRef:
                 name: backend-config
