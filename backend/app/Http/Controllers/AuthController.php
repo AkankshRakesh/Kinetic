@@ -19,7 +19,6 @@ class AuthController extends Controller
             'password' => $request->string('password')->toString(),
         ]);
 
-        // Generate API token for token-based authentication
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -33,7 +32,6 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        // Use the 'web' guard to validate credentials (supports attempt() method)
         if (! Auth::guard('web')->attempt($credentials)) {
             return response()->json([
                 'message' => 'Invalid credentials.',
@@ -45,7 +43,6 @@ class AuthController extends Controller
 
         $user = Auth::guard('web')->user();
         
-        // Generate API token for token-based authentication
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

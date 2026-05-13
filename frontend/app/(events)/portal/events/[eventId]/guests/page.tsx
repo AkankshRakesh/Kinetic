@@ -219,6 +219,10 @@ export default function GuestsPage() {
   const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<GuestStatus | "ALL">("ALL");
+  const [sortBy, setSortBy] = useState<"date" | "name" | "people">("date");
 
   useEffect(() => {
     let isMounted = true;
@@ -379,6 +383,33 @@ export default function GuestsPage() {
   const scheduledCount = guests.filter(
     (guest) => guest.status === "PENDING"
   ).length;
+
+  const filteredAndSortedGuests = guests
+    .filter((guest) => {
+      // Status filter
+      if (statusFilter !== "ALL" && guest.status !== statusFilter) {
+        return false;
+      }
+      // Search filter
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase().trim();
+        return (
+          guest.name.toLowerCase().includes(term) ||
+          guest.email.toLowerCase().includes(term)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortBy === "people") {
+        return b.peopleCount - a.peopleCount;
+      }
+      // sortBy === "date"
+      return b.date.localeCompare(a.date);
+    });
 
   return (
     <main className={`${uiFont.className} min-h-screen bg-[#090b10] text-[#e5e2e3] flex flex-col`}>
@@ -558,6 +589,7 @@ export default function GuestsPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setShowFilters(!showFilters)}
               className="flex items-center gap-2 border border-[#3b3430]/80 bg-[#0d1118] hover:border-[#ffb77b]/40 transition px-3.5 py-2 text-[10px] tracking-[0.2em] text-[#9f8e86] hover:text-[#ffb77b] rounded-sm"
             >
               <FilterIcon />
@@ -572,6 +604,72 @@ export default function GuestsPage() {
             </button>
           </div>
         </motion.div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mb-6 border border-[#3b3430]/80 bg-[#0d1118] rounded-sm p-5"
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {/* Search */}
+              <div>
+                <p className="text-[9px] tracking-[0.24em] text-[#8f8078] mb-2">SEARCH NAME / EMAIL</p>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Filter guests..."
+                  className="w-full bg-[#090b10] border border-[#3b3430]/80 rounded-sm px-3 py-2 text-sm text-[#dac7bd] placeholder:text-[#5a4e48] focus:outline-none focus:border-[#ffb77b]/60 transition"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <p className="text-[9px] tracking-[0.24em] text-[#8f8078] mb-2">STATUS</p>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as GuestStatus | "ALL")}
+                  className="w-full bg-[#090b10] border border-[#3b3430]/80 rounded-sm px-3 py-2 text-sm text-[#dac7bd] focus:outline-none focus:border-[#ffb77b]/60 transition"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ACCEPTED">Accepted</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+              </div>
+
+              {/* Sort */}
+              <div>
+                <p className="text-[9px] tracking-[0.24em] text-[#8f8078] mb-2">SORT BY</p>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "date" | "name" | "people")}
+                  className="w-full bg-[#090b10] border border-[#3b3430]/80 rounded-sm px-3 py-2 text-sm text-[#dac7bd] focus:outline-none focus:border-[#ffb77b]/60 transition"
+                >
+                  <option value="date">Latest First</option>
+                  <option value="name">Name (A-Z)</option>
+                  <option value="people">People Count</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("ALL");
+                setSortBy("date");
+              }}
+              className="mt-4 text-[10px] tracking-[0.2em] text-[#9f8e86] hover:text-[#ffb77b] transition"
+            >
+              CLEAR ALL FILTERS
+            </button>
+          </motion.div>
+        )}
 
         {/* Table */}
         <motion.div
@@ -597,8 +695,12 @@ export default function GuestsPage() {
             <div className="px-5 py-8 text-[10px] font-semibold tracking-[0.24em] text-[#6b5c54]">
               NO INVITATIONS FOUND
             </div>
+          ) : filteredAndSortedGuests.length === 0 ? (
+            <div className="px-5 py-8 text-[10px] font-semibold tracking-[0.24em] text-[#6b5c54]">
+              NO MATCHING GUESTS FOUND
+            </div>
           ) : (
-            guests.map((guest, i) => (
+            filteredAndSortedGuests.map((guest, i) => (
               <motion.div
                 key={guest.id}
                 initial={{ opacity: 0, x: -6 }}

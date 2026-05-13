@@ -20,7 +20,7 @@ class GuestInvitationController extends Controller
 {
     public function index(Request $request, Event $event)
     {
-        abort_unless($event->owner_user_id === $request->user()->id, 404);
+        abort_unless($event->owner_user_id === $request->user()->id, 404); // owner == event owner
 
         $invitations = GuestInvitation::query()
             ->where('event_id', $event->id)
@@ -159,7 +159,7 @@ class GuestInvitationController extends Controller
         ]);
     }
 
-    public function accept(string $token)
+    public function accept(string $token) // legacy function, using respond for message adn to allow rejects now
     {
         return $this->respondToInvitation($token, 'accepted');
     }
@@ -200,7 +200,7 @@ class GuestInvitationController extends Controller
 
         $uploadUrl = null;
 
-        // If invitation is accepted, create upload share link and send email
+        // if invitation is accepted, create upload share link and send email
         if ($status === 'accepted') {
             $uploadUrl = $this->createAndEmailUploadLink($invitation);
         }
@@ -230,12 +230,10 @@ class GuestInvitationController extends Controller
 
     private function createAndEmailUploadLink(GuestInvitation $invitation): string
     {
-        // Check if upload record already exists for this guest at this event
         $existingUpload = GuestUpload::where('event_id', $invitation->event_id)
             ->where('guest_email', $invitation->guest_email)
             ->first();
 
-        // If it doesn't exist, create one
         if (! $existingUpload) {
             $shareToken = Str::random(32);
             $existingUpload = GuestUpload::create([
@@ -248,11 +246,9 @@ class GuestInvitationController extends Controller
             ]);
         }
 
-        // Build the upload URL
         $frontendUrl = rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/');
         $uploadUrl = "{$frontendUrl}/upload/{$existingUpload->share_token}";
 
-        // Send email with upload link
         Mail::to($invitation->guest_email)->send(
             new GuestPhotoUploadMail(
                 $invitation->guest_name,
@@ -262,7 +258,6 @@ class GuestInvitationController extends Controller
             )
         );
 
-        // Send calendar schedule email
         $calendarUrl = "{$frontendUrl}/upload/{$existingUpload->share_token}/calendar";
         Mail::to($invitation->guest_email)->send(
             new GuestCalendarScheduleMail(

@@ -20,7 +20,6 @@ class GuestUploadController extends Controller
      */
     public function generateShareLink(Request $request, Event $event)
     {
-        // Ensure the user owns this event
         abort_unless($event->owner_user_id === $request->user()->id, 403);
 
         $validator = Validator::make($request->all(), [
@@ -35,7 +34,6 @@ class GuestUploadController extends Controller
 
         $data = $validator->validated();
 
-        // Check if this guest already has an upload record for this event
         $existingUpload = GuestUpload::where('event_id', $event->id)
             ->where('guest_email', $data['guest_email'])
             ->first();
@@ -53,7 +51,6 @@ class GuestUploadController extends Controller
             ], 200);
         }
 
-        // Generate a unique share token
         $shareToken = Str::random(32);
 
         $guestUpload = GuestUpload::create([
@@ -65,7 +62,6 @@ class GuestUploadController extends Controller
             'upload_count' => 0,
         ]);
 
-        // Send email if requested
         if ($request->boolean('send_email', false)) {
             $uploadUrl = url("/upload/{$guestUpload->share_token}");
             Mail::to($data['guest_email'])->send(
@@ -114,7 +110,6 @@ class GuestUploadController extends Controller
         $uploadedPaths = [];
         $currentImageCount = $guestUpload->upload_count ?? 0;
 
-        // Check if adding these images would exceed the 5 image limit
         if ($currentImageCount + count($images) > 5) {
             return response()->json([
                 'message' => 'Maximum 5 images allowed. You have already uploaded ' . $currentImageCount . ' image(s).',
@@ -126,12 +121,10 @@ class GuestUploadController extends Controller
                 $filename = Str::uuid() . '.' . $image->getClientOriginalExtension();
                 $path = "events/{$guestUpload->event_id}/uploads/{$guestUpload->id}/{$filename}";
 
-                // Store in Supabase (using the configured storage disk)
                 /** @var FilesystemAdapter $disk */
                 $disk = Storage::disk('supabase');
                 $disk->put($path, file_get_contents($image));
 
-                // Generate public URL
                 $url = $disk->url($path);
 
                 $uploadedPaths[] = [
@@ -147,14 +140,12 @@ class GuestUploadController extends Controller
             }
         }
 
-        // Update guest upload record
         $currentImages = $guestUpload->image_paths ?? [];
         $guestUpload->update([
             'image_paths' => array_merge($currentImages, $uploadedPaths),
             'upload_count' => $guestUpload->upload_count + count($images),
         ]);
 
-        // Log the activity
         $event = Event::find($guestUpload->event_id);
         if ($event) {
             ActivityLog::logActivity(
@@ -188,7 +179,6 @@ class GuestUploadController extends Controller
      */
     public function getEventUploads(Request $request, Event $event)
     {
-        // Ensure the user owns this event
         abort_unless($event->owner_user_id === $request->user()->id, 403);
 
         $uploads = GuestUpload::where('event_id', $event->id)

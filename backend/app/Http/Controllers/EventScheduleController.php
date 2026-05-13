@@ -32,7 +32,6 @@ class EventScheduleController extends Controller
      */
     public function store(Request $request, Event $event): JsonResponse
     {
-        // Verify user owns the event
         if ($event->owner_user_id !== $request->user()->id) {
             return response()->json([
                 'success' => false,
@@ -49,7 +48,6 @@ class EventScheduleController extends Controller
             'color' => 'required|string|regex:/^#[0-9a-fA-F]{6}$/',
         ]);
 
-        // Validate that start_time is before end_time
         if ($validated['start_time'] >= $validated['end_time']) {
             return response()->json([
                 'success' => false,
@@ -57,7 +55,6 @@ class EventScheduleController extends Controller
             ], 422);
         }
 
-        // Check for conflicts with existing events on the same date
         $conflicts = $event->schedules()
             ->where('date_key', $validated['date_key'])
             ->where(function ($query) use ($validated) {
@@ -91,19 +88,18 @@ class EventScheduleController extends Controller
             'color' => $validated['color'],
         ]);
 
-        // Log the activity
-        ActivityLog::logActivity(
-            $event->id,
-            $request->user()->id,
-            'schedule_created',
-            "Created schedule: {$schedule->title}",
-            [
-                'schedule_id' => $schedule->id,
-                'title' => $schedule->title,
-                'date' => $schedule->date_key,
-                'time' => "{$schedule->start_time} - {$schedule->end_time}",
-            ]
-        );
+        // ActivityLog::logActivity(
+        //     $event->id,
+        //     $request->user()->id,
+        //     'schedule_created',
+        //     "Created schedule: {$schedule->title}",
+        //     [
+        //         'schedule_id' => $schedule->id,
+        //         'title' => $schedule->title,
+        //         'date' => $schedule->date_key,
+        //         'time' => "{$schedule->start_time} - {$schedule->end_time}",
+        //     ]
+        // );
 
         return response()->json([
             'success' => true,
@@ -117,7 +113,6 @@ class EventScheduleController extends Controller
      */
     public function show(Event $event, EventSchedule $schedule): JsonResponse
     {
-        // Verify schedule belongs to event
         if ($schedule->event_id !== $event->id) {
             return response()->json([
                 'success' => false,
