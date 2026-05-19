@@ -12,8 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Removed statefulApi() - using token-based authentication only
-        // CORS is handled via config/cors.php
+        
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

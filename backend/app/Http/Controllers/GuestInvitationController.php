@@ -16,8 +16,9 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 
-class GuestInvitationController extends Controller
-{
+class 
+GuestInvitationController extends Controller
+{    
     public function index(Request $request, Event $event)
     {
         abort_unless($event->owner_user_id === $request->user()->id, 404); // owner == event owner

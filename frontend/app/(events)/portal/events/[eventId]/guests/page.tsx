@@ -524,14 +524,14 @@ export default function GuestsPage() {
               <SendIcon />
               {loading ? "Sending..." : "Send Now"}
             </button>
-            <button
+            {/* <button
               type="button"
               className="flex items-center justify-center gap-2.5 bg-[#2a1f0e] border border-[#ffb77b]/55 hover:bg-[#ffb77b]/15 transition px-5 py-3.5 text-xs font-semibold tracking-[0.14em] text-[#ffcfaa] rounded-sm"
               disabled
             >
               <ClockIcon />
               Schedule for Later
-            </button>
+            </button> */}
           </div>
           {error && <div className="text-xs text-red-400 mt-1">{error}</div>}
           {success && <div className="text-xs text-green-400 mt-1">{success}</div>}
@@ -847,7 +847,7 @@ export default function GuestsPage() {
         </div>
 
         <p className="text-[8px] tracking-[0.18em] text-[#3a322e]">
-          © 2024 KINETIC LABORATORY | INVITATION_INTERFACE
+          © 2026 KINETIC LABORATORY | INVITATION_INTERFACE
         </p>
       </footer>
     </main>

@@ -131,7 +131,6 @@ class EventScheduleController extends Controller
      */
     public function update(Request $request, Event $event, EventSchedule $schedule): JsonResponse
     {
-        // Verify schedule belongs to event
         if ($schedule->event_id !== $event->id) {
             return response()->json([
                 'success' => false,
@@ -139,7 +138,6 @@ class EventScheduleController extends Controller
             ], 404);
         }
 
-        // Verify user owns the event
         if ($event->owner_user_id !== $request->user()->id) {
             return response()->json([
                 'success' => false,
@@ -156,7 +154,6 @@ class EventScheduleController extends Controller
             'color' => 'sometimes|string|regex:/^#[0-9a-fA-F]{6}$/',
         ]);
 
-        // If times are being updated, validate them
         $startTime = $validated['start_time'] ?? $schedule->start_time;
         $endTime = $validated['end_time'] ?? $schedule->end_time;
         $dateKey = $validated['date_key'] ?? $schedule->date_key;
@@ -168,12 +165,10 @@ class EventScheduleController extends Controller
             ], 422);
         }
 
-        // Check for conflicts with other events on the same date (excluding this schedule)
         $conflicts = $event->schedules()
             ->where('date_key', $dateKey)
             ->where('id', '!=', $schedule->id)
             ->where(function ($query) use ($startTime, $endTime) {
-                // Event overlaps if: (new_start < existing_end) AND (new_end > existing_start)
                 $query->whereRaw("start_time < ? AND end_time > ?", [
                     $endTime,
                     $startTime
@@ -207,7 +202,6 @@ class EventScheduleController extends Controller
      */
     public function destroy(Request $request, Event $event, EventSchedule $schedule): JsonResponse
     {
-        // Verify schedule belongs to event
         if ($schedule->event_id !== $event->id) {
             return response()->json([
                 'success' => false,
@@ -215,7 +209,6 @@ class EventScheduleController extends Controller
             ], 404);
         }
 
-        // Verify user owns the event
         if ($event->owner_user_id !== $request->user()->id) {
             return response()->json([
                 'success' => false,
@@ -226,17 +219,16 @@ class EventScheduleController extends Controller
         $title = $schedule->title;
         $schedule->delete();
 
-        // Log the activity
-        ActivityLog::logActivity(
-            $event->id,
-            $request->user()->id,
-            'schedule_deleted',
-            "Deleted schedule: {$title}",
-            [
-                'schedule_id' => $schedule->id,
-                'title' => $title,
-            ]
-        );
+        // ActivityLog::logActivity(
+        //     $event->id,
+        //     $request->user()->id,
+        //     'schedule_deleted',
+        //     "Deleted schedule: {$title}",
+        //     [
+        //         'schedule_id' => $schedule->id,
+        //         'title' => $title,
+        //     ]
+        // );
 
         return response()->json([
             'success' => true,
